@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Porch Sermon Slide Generator (4K ProPresenter Match)</title>
+  <!-- Google Fonts for typography fallbacks -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,500;1,300;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-container">
+        <svg class="app-icon" viewBox="0 0 100 150" fill="currentColor">
+          <!-- Top Loop (Hollow Ring) -->
+          <path d="M 38,14 a 12,12 0 0,1 24,0 h -5 a 7,7 0 0,0 -14,0 z" />
+          <!-- Cap, Peak, Neck, and Lid -->
+          <path d="M 50,11 L 35,20 h 30 Z M 32,20 h 36 v 3 H 32 Z M 37,23 h 26 v 8 H 37 Z M 15,31 h 70 v 3 H 15 Z M 15,34 C 15,44 10,56 0,58 h 100 C 90,56 85,44 85,34 Z" />
+          <!-- Frame with cutout and bottom base (divider gap Y: 58-61) -->
+          <path fill-rule="evenodd" d="M 5,61 h 90 v 82 H 67 v 5 H 33 v -5 H 5 Z M 17,73 v 57 h 66 v -57 Z" />
+        </svg>
+        <div class="header-text">
+          <h1>Porch Sermon Slide Generator</h1>
+          <p>4K ProPresenter Overlay Automator</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-demo" class="btn btn-secondary">Load Porch Sample</button>
+        <button id="btn-demo-lovers" class="btn btn-secondary">Load Lover's Sample</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="app-workspace">
+      <!-- Left Controls Panel -->
+      <aside class="controls-panel">
+        <section class="settings-group">
+          <h2>1. Paste Email Request</h2>
+          <div class="textarea-wrapper">
+            <textarea id="raw-input" placeholder="Paste the weekly slides request text here...&#10;e.g.&#10;Jn 6:30-35&#10;If You Only Believe in Jesus...&#10;Jn 6:39"></textarea>
+          </div>
+        </section>
+
+        <section class="settings-group">
+          <h2>2. Layout Settings</h2>
+          <div class="control-grid">
+            <div class="control-item">
+              <label for="slide-theme">Theme</label>
+              <select id="slide-theme">
+                <option value="porch-generic" selected>Porch Generic (White Text)</option>
+                <option value="lovers-series">Lover's Series (Black Text)</option>
+              </select>
+            </div>
+
+            <div class="control-item">
+              <label for="bible-translation">Translation</label>
+              <select id="bible-translation">
+                <option value="ESV">ESV</option>
+                <option value="KJV">KJV</option>
+                <option value="NIV2011">NIV</option>
+                <option value="NIV">NIV 84</option>
+                <option value="NASB">NASB</option>
+                <option value="NASB_1995">NASB 1995</option>
+                <option value="NLT">NLT</option>
+                <option value="ASV">ASV</option>
+                <option value="CSB17">CSB</option>
+              </select>
+            </div>
+            
+            <div class="control-item">
+              <label for="context-window">Context Verses</label>
+              <select id="context-window">
+                <option value="2">2 Before / 2 After (Default)</option>
+                <option value="1">1 Before / 1 After</option>
+                <option value="0">Target Verse Only (0 Context)</option>
+              </select>
+            </div>
+
+            <div class="control-item">
+              <label for="context-opacity">Muted Context Opacity</label>
+              <div class="range-wrapper">
+                <input type="range" id="context-opacity" min="0.1" max="0.5" step="0.05" value="0.25">
+                <span id="context-opacity-value">25%</span>
+              </div>
+            </div>
+
+            <div class="control-item">
+              <label for="line-limit">Line Limit</label>
+              <input type="number" id="line-limit" min="5" max="15" value="12" readonly>
+              <small class="help-text">Locked at 12 lines max</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-group">
+          <h2>3. Font Stack & Design</h2>
+          <div class="control-grid">
+            <div class="control-item font-status-container">
+              <span class="font-label">Scripture Body Font:</span>
+              <span class="font-name">Neue Haas Grotesk Display Pro</span>
+              <span id="font-haas-status" class="status-indicator loading">Checking local font...</span>
+            </div>
+            <div class="control-item font-status-container">
+              <span class="font-label">Reference/Sermon Font:</span>
+              <span class="font-name">IBM Plex Mono</span>
+              <span id="font-plex-status" class="status-indicator success">Loaded (Google Font)</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="action-footer">
+          <button id="btn-generate" class="btn btn-primary btn-full">
+            <span class="icon">⚡</span> Generate Slides
+          </button>
+          <button id="btn-export" class="btn btn-success btn-full" disabled>
+            <span class="icon">📥</span> Download 4K Transparent ZIP
+          </button>
+        </div>
+      </aside>
+
+      <!-- Right Visual Preview Panel -->
+      <main class="preview-panel">
+        <div class="preview-header">
+          <div class="view-toggles">
+            <button id="toggle-grid" class="toggle-btn active">Grid View</button>
+            <button id="toggle-editor" class="toggle-btn">Slide Editor</button>
+          </div>
+          <div class="preview-summary">
+            <span id="slide-count">0 slides generated</span>
+          </div>
+        </div>
+
+        <!-- Scrollable Workspace -->
+        <div class="preview-workspace">
+          <!-- Slide Sorter Grid -->
+          <div id="grid-view" class="slides-grid-container">
+            <div class="empty-state">
+              <div class="empty-icon">📖</div>
+              <h3>No Slides Generated Yet</h3>
+              <p>Paste your weekly request and click <strong>Generate Slides</strong> to see the preview here.</p>
+            </div>
+          </div>
+
+          <!-- Slide Editor View (Single Slide Focus) -->
+          <div id="editor-view" class="slide-editor-container" style="display: none;">
+            <div class="editor-layout">
+              <div class="editor-main">
+                <div class="canvas-scaler-wrapper">
+                  <!-- The simulated 16:9 Slide Canvas -->
+                  <div id="slide-canvas-preview" class="slide-canvas checkerboard">
+                    <div class="slide-left-column">
+                      <div class="slide-ref-book" contenteditable="true" data-placeholder="BOOK">JOHN</div>
+                      <div class="slide-ref-verse" contenteditable="true" data-placeholder="0:00">6:30</div>
+                    </div>
+                    <div class="slide-divider"></div>
+                    <div class="slide-right-column">
+                      <div class="slide-text-body" contenteditable="true" data-placeholder="Scripture body text...">Select a slide to edit</div>
+                    </div>
+                    <!-- Non-scripture container (overlay) -->
+                    <div class="slide-center-title" contenteditable="true" data-placeholder="SERMON POINT TITLE" style="display: none;">
+                      SERMON TITLE SLIDE
+                    </div>
+                    <!-- Quote container (overlay) -->
+                    <div class="slide-quote-container" style="display: none;">
+                      <div class="slide-quote-text" contenteditable="true" data-placeholder="Quote text...">“Quote”</div>
+                      <div class="slide-quote-author" contenteditable="true" data-placeholder="AUTHOR">AUTHOR</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sidebar/Sub-navigation for the Editor -->
+              <div class="editor-sidebar">
+                <h3>Slide Properties</h3>
+                <div class="slide-info-card">
+                  <div class="info-row" style="align-items: center; gap: 10px;">
+                    <span class="info-label">Type:</span>
+                    <select id="active-slide-type-select" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); color: white; border-radius: 6px; outline: none; cursor: pointer;">
+                      <option value="scripture">Scripture</option>
+                      <option value="sermon-point">Sermon Point</option>
+                      <option value="quote">Quote</option>
+                    </select>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Line Count:</span>
+                    <span id="active-slide-lines" class="badge warning">0 / 12</span>
+                  </div>
+                  <div class="info-row" id="active-slide-translation-container" style="display: none; align-items: center; gap: 10px;">
+                    <span class="info-label">Translation:</span>
+                    <select id="active-slide-translation" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); color: white; border-radius: 6px; outline: none; cursor: pointer;">
+                      <option value="ESV">ESV</option>
+                      <option value="KJV">KJV</option>
+                      <option value="NIV2011">NIV</option>
+                      <option value="NIV">NIV 84</option>
+                      <option value="NASB">NASB</option>
+                      <option value="NASB_1995">NASB 1995</option>
+                      <option value="NLT">NLT</option>
+                      <option value="ASV">ASV</option>
+                      <option value="CSB17">CSB</option>
+                    </select>
+                  </div>
+                  <div class="info-row" id="active-slide-format-container" style="display: none; align-items: center; gap: 10px;">
+                    <span class="info-label">Format:</span>
+                    <select id="active-slide-format" style="padding: 4px 8px; font-size: 0.85rem; width: auto; background-color: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); color: white; border-radius: 6px; outline: none; cursor: pointer;">
+                      <option value="prose">Prose (Justified)</option>
+                      <option value="poetry">Poetry (Left-Aligned)</option>
+                    </select>
+                  </div>
+                  <p class="warning-text" id="active-slide-overflow-warning" style="display: none;">
+                    ⚠️ Warning: Text exceeds 12 lines! It will be cut off or scaled improperly. Reduce the text or split the slide.
+                  </p>
+                </div>
+
+                <h3>Slide Text</h3>
+                <textarea id="active-slide-textarea" placeholder="Edit slide text directly here..."></textarea>
+                <small class="help-text">Edits are applied immediately to this slide.</small>
+
+                <div class="editor-navigation">
+                  <button id="btn-prev-slide" class="btn btn-secondary">&larr; Previous</button>
+                  <span id="editor-slide-index">Slide 1 of 1</span>
+                  <button id="btn-next-slide" class="btn btn-secondary">Next &rarr;</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Hidden Offscreen 4K Canvas for Exporting -->
+    <canvas id="export-canvas" width="3840" height="2160" style="display: none;"></canvas>
+
+    <!-- Hidden Line Counting Calibration Area -->
+    <div id="line-counter-calibration" class="hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2177px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 85px; line-height: 1.45; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
+      <div id="calibration-single-line" style="display: block; width: 100%;">Line</div>
+    </div>
+    <div id="line-counter-measurement" class="hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2177px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 85px; line-height: 1.45; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
+    </div>
+  </div>
+
+  <!-- Progress Overlay Modal -->
+  <div id="progress-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <h3>Generating 4K Slides</h3>
+      <p id="progress-status">Initializing...</p>
+      <div class="progress-bar-container">
+        <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+      <span id="progress-percentage">0%</span>
+    </div>
+  </div>
+
+  <!-- Main scripts -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
