@@ -215,15 +215,26 @@
                   </p>
                 </div>
 
-                <h3>Slide Text</h3>
+                <div class="editor-text-header">
+                  <h3>Slide Text</h3>
+                  <div class="text-formatting-toolbar">
+                    <button id="btn-toggle-emphasis" type="button" class="btn-toolbar" title="Toggle Emphasis (100% / 25% Opacity) [Cmd+E or Cmd+H]">
+                      <span>✨ Emphasize</span>
+                      <kbd style="font-size: 0.65rem; opacity: 0.7; background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 3px;">⌘E</kbd>
+                    </button>
+                  </div>
+                </div>
                 <textarea id="active-slide-textarea" placeholder="Edit slide text directly here..."></textarea>
-                <small class="help-text">Edits are applied immediately to this slide.</small>
+                <small class="help-text">Edits are applied immediately to this slide. Tip: Select text and press <strong>⌘E</strong> to emphasize.</small>
 
                 <div class="editor-navigation">
                   <button id="btn-prev-slide" class="btn btn-secondary">&larr; Previous</button>
                   <span id="editor-slide-index">Slide 1 of 1</span>
                   <button id="btn-next-slide" class="btn btn-secondary">Next &rarr;</button>
                 </div>
+                <button id="btn-download-active-slide" class="btn-download-slide" title="Export this active slide as 4K transparent PNG using the standard naming convention">
+                  <span>💾 Download This Slide</span>
+                </button>
               </div>
             </div>
           </div>

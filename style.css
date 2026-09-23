@@ -457,6 +457,8 @@ input[type="range"] {
   pointer-events: none;
   font-size: 0.75rem;
   font-family: 'IBM Plex Mono', monospace;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 .grid-slide-num {
@@ -550,6 +552,8 @@ input[type="range"] {
   margin-bottom: 20px;
   outline: none;
   min-width: 200px;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 .slide-ref-verse {
@@ -561,6 +565,8 @@ input[type="range"] {
   line-height: 1.2;
   outline: none;
   min-width: 200px;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 /* Vertical Divider */
@@ -639,6 +645,8 @@ input[type="range"] {
   white-space: normal;
   word-break: normal;
   box-sizing: border-box;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 /* Quote Slide Styling */
@@ -679,6 +687,22 @@ input[type="range"] {
   outline: none;
   white-space: normal;
   word-break: normal;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
+}
+
+/* Highlight & De-emphasis styling for sermon points and quotes */
+.slide-center-title span.highlight,
+.slide-quote-text span.highlight {
+  color: #ffffff !important;
+  opacity: 1.0 !important;
+}
+
+.slide-center-title:has(span.highlight),
+.slide-center-title.has-highlight,
+.slide-quote-text:has(span.highlight),
+.slide-quote-text.has-highlight {
+  color: rgba(255, 255, 255, 0.25);
 }
 
 /* ==========================================================================
@@ -743,6 +767,8 @@ input[type="range"] {
   color: #000000;
   margin-bottom: 0;
   line-height: 1.2;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 .theme-lovers-series .slide-ref-verse {
@@ -751,6 +777,8 @@ input[type="range"] {
   font-size: 96px;
   color: #000000;
   line-height: 1.2;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 /* Lover's Series: Vertical Divider */
@@ -765,9 +793,9 @@ input[type="range"] {
 /* Lover's Series: Right Scripture Text Column */
 .theme-lovers-series .slide-right-column {
   left: 1613.8px;
-  top: 546.4px;
+  top: 455px;
   width: 2101.5px;
-  height: 906.3px;
+  height: 1250px;
   padding-right: 0;
   display: flex;
   flex-direction: column;
@@ -794,6 +822,8 @@ input[type="range"] {
   font-weight: 500;
   font-size: 90px;
   letter-spacing: 2px;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 /* Lover's Series: Quote Slide */
@@ -808,6 +838,21 @@ input[type="range"] {
   font-size: 70px;
   letter-spacing: 0.15em;
   font-weight: 500;
+  font-variant-numeric: slashed-zero;
+  font-feature-settings: "zero" 1, "ss03" 1;
+}
+
+.theme-lovers-series .slide-center-title span.highlight,
+.theme-lovers-series .slide-quote-text span.highlight {
+  color: #000000 !important;
+  opacity: 1.0 !important;
+}
+
+.theme-lovers-series .slide-center-title:has(span.highlight),
+.theme-lovers-series .slide-center-title.has-highlight,
+.theme-lovers-series .slide-quote-text:has(span.highlight),
+.theme-lovers-series .slide-quote-text.has-highlight {
+  color: rgba(0, 0, 0, 0.25);
 }
 
 /* Editor Sidebar controls */
@@ -874,6 +919,50 @@ input[type="range"] {
   line-height: 1.3;
 }
 
+.editor-text-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.editor-text-header h3 {
+  margin: 0;
+}
+
+.text-formatting-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-toolbar {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-toolbar:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.btn-toolbar:active {
+  transform: scale(0.97);
+}
+
 textarea#active-slide-textarea {
   width: 100%;
   height: 150px;
@@ -909,6 +998,34 @@ textarea#active-slide-textarea:focus {
 .editor-navigation .btn {
   padding: 8px 12px;
   font-size: 0.8rem;
+}
+
+.btn-download-slide {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background-color: rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--accent-color);
+  color: #c7d2fe;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-download-slide:hover {
+  background-color: var(--accent-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-download-slide:active {
+  transform: scale(0.98);
 }
 
 /* Custom Scrollbar */

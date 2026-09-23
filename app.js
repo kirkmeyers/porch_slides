@@ -140,6 +140,8 @@ const activeSlideTextarea = document.getElementById('active-slide-textarea');
 const btnPrevSlide = document.getElementById('btn-prev-slide');
 const btnNextSlide = document.getElementById('btn-next-slide');
 const editorSlideIndexEl = document.getElementById('editor-slide-index');
+const btnToggleEmphasis = document.getElementById('btn-toggle-emphasis');
+const btnDownloadActiveSlide = document.getElementById('btn-download-active-slide');
 
 const activeSlideTranslationEl = document.getElementById('active-slide-translation');
 const activeSlideTranslationContainer = document.getElementById('active-slide-translation-container');
@@ -211,7 +213,7 @@ function formatPoeticVerse(text) {
 
 // Helper to get max lines limit based on active theme
 function getMaxLines() {
-  return (slideThemeEl && slideThemeEl.value === 'lovers-series') ? 10 : 12;
+  return 12;
 }
 
 // 5. Initialize Font Face Loading & Line Calibration
@@ -238,8 +240,8 @@ function updateCalibrationForTheme() {
   
   if (isLovers) {
     document.body.classList.add('theme-lovers-series');
-    if (lineLimitEl) lineLimitEl.value = '10';
-    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 10 lines max (Lover\'s Series)';
+    if (lineLimitEl) lineLimitEl.value = '12';
+    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 12 lines max (Lover\'s Series)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2101.5px';
       lineCounterCalibration.style.fontSize = '82px';
@@ -417,8 +419,8 @@ function parseRawInput(text) {
   const lines = text.split('\n');
   const parsed = [];
   
-  // Regex to strip slide numbers, e.g., "Slide 1: ", "Slide 10: "
-  const slidePrefixRegex = /^Slide\s+\d+:\s*/i;
+  // Regex to strip slide prefixes: "Slide 1:", "Slide 1 :", "Slide:", "Slide :"
+  const slidePrefixRegex = /^Slide\s*(?:\d+\s*)?:\s*/i;
   
   // Scripture Regex: relaxed/tolerant and space-tolerant
   const scriptureRegex = /^([1-3]?\s*[^:\n]+?)\s+(\d+)\s*:\s*([\d\s\-,;]+)(?:\s*(?:\(([A-Za-z0-9\s]+)\)|([A-Za-z0-9\s]+)))?$/i;
@@ -1308,6 +1310,250 @@ btnNextSlide.addEventListener('click', () => {
   }
 });
 
+// Helper to format consistent filenames for both single slide download and bulk zip
+function getSlideFilename(slide, index) {
+  let filename = String(index + 1).padStart(3, '0') + '_';
+  if (slide.type === 'scripture') {
+    const bookClean = (slide.refBook || 'scripture').toLowerCase().replace(/\s+/g, '_');
+    const verseClean = (slide.refVerse || '').replace(/:/g, '_');
+    filename += `${bookClean}_${verseClean}.png`;
+  } else {
+    // Truncate title for filename
+    const raw = slide.rawText || slide.text || 'point';
+    const titleClean = raw.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .substring(0, 20)
+      .replace(/^_+|_+$/g, '');
+    filename += `point_${titleClean || 'slide'}.png`;
+  }
+  return filename;
+}
+
+// Helper to cleanup and merge adjacent highlight spans
+function cleanHighlightSpans(container) {
+  if (!container) return;
+  const highlights = container.querySelectorAll('.highlight');
+  highlights.forEach(h => {
+    // Remove if empty
+    if (!h.textContent.trim() && !h.children.length) {
+      if (h.parentNode) h.parentNode.removeChild(h);
+      return;
+    }
+    // Merge if next sibling is also a highlight
+    let next = h.nextSibling;
+    while (next && next.nodeType === Node.ELEMENT_NODE && next.classList.contains('highlight')) {
+      while (next.firstChild) {
+        h.appendChild(next.firstChild);
+      }
+      const toRemove = next;
+      next = next.nextSibling;
+      if (toRemove.parentNode) toRemove.parentNode.removeChild(toRemove);
+    }
+  });
+}
+
+// Toggle text selection emphasis between 100% opacity and 25% opacity
+function toggleSelectionEmphasis() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide) return;
+
+  let visualContainer = null;
+  if (slide.type === 'scripture') {
+    visualContainer = editorBodyEl;
+  } else if (slide.type === 'quote') {
+    visualContainer = editorQuoteTextEl;
+  } else {
+    visualContainer = editorTitleEl;
+  }
+
+  // Option 1: Selection inside the textarea
+  if (document.activeElement === activeSlideTextarea && activeSlideTextarea.selectionStart !== activeSlideTextarea.selectionEnd) {
+    const val = activeSlideTextarea.value;
+    const sStart = activeSlideTextarea.selectionStart;
+    const sEnd = activeSlideTextarea.selectionEnd;
+    const selText = val.substring(sStart, sEnd);
+
+    let newSelText = '';
+    if (selText.includes('class="highlight"') || (selText.startsWith('<span class="highlight">') && selText.endsWith('</span>'))) {
+      newSelText = selText.replace(/<span class="highlight">/g, '').replace(/<\/span>/g, '');
+    } else {
+      newSelText = `<span class="highlight">${selText}</span>`;
+    }
+
+    activeSlideTextarea.value = val.substring(0, sStart) + newSelText + val.substring(sEnd);
+    activeSlideTextarea.selectionStart = sStart;
+    activeSlideTextarea.selectionEnd = sStart + newSelText.length;
+    activeSlideTextarea.dispatchEvent(new Event('input'));
+    return;
+  }
+
+  // Option 2: Visual selection in canvas preview
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed && visualContainer) {
+    const range = sel.getRangeAt(0);
+
+    if (visualContainer.contains(range.commonAncestorContainer) || 
+        (range.commonAncestorContainer === visualContainer) ||
+        (visualContainer.contains(range.startContainer) && visualContainer.contains(range.endContainer))) {
+      
+      let node = range.commonAncestorContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+      const highlightEl = node.closest ? node.closest('.highlight') : null;
+      const insideHighlight = highlightEl && visualContainer.contains(highlightEl);
+
+      if (insideHighlight) {
+        // De-emphasize selected text
+        if (range.toString().trim() === highlightEl.textContent.trim()) {
+          const parent = highlightEl.parentNode;
+          while (highlightEl.firstChild) {
+            parent.insertBefore(highlightEl.firstChild, highlightEl);
+          }
+          parent.removeChild(highlightEl);
+        } else {
+          const textBefore = document.createRange();
+          textBefore.setStartBefore(highlightEl);
+          textBefore.setEnd(range.startContainer, range.startOffset);
+
+          const textAfter = document.createRange();
+          textAfter.setStart(range.endContainer, range.endOffset);
+          textAfter.setEndAfter(highlightEl);
+
+          const beforeFrag = textBefore.cloneContents();
+          const afterFrag = textAfter.cloneContents();
+          const selectedFrag = range.extractContents();
+
+          const fragment = document.createDocumentFragment();
+          if (beforeFrag.textContent.length > 0) {
+            const spanBefore = document.createElement('span');
+            spanBefore.className = 'highlight';
+            spanBefore.appendChild(beforeFrag);
+            fragment.appendChild(spanBefore);
+          }
+          fragment.appendChild(selectedFrag);
+          if (afterFrag.textContent.length > 0) {
+            const spanAfter = document.createElement('span');
+            spanAfter.className = 'highlight';
+            spanAfter.appendChild(afterFrag);
+            fragment.appendChild(spanAfter);
+          }
+          highlightEl.parentNode.replaceChild(fragment, highlightEl);
+        }
+      } else {
+        // Emphasize selected text
+        const extracted = range.extractContents();
+        const innerHighlights = extracted.querySelectorAll ? extracted.querySelectorAll('.highlight') : [];
+        innerHighlights.forEach(h => {
+          const p = h.parentNode;
+          while (h.firstChild) p.insertBefore(h.firstChild, h);
+          p.removeChild(h);
+        });
+
+        const span = document.createElement('span');
+        span.className = 'highlight';
+        span.appendChild(extracted);
+        range.insertNode(span);
+      }
+
+      cleanHighlightSpans(visualContainer);
+
+      let updatedHtml = '';
+      if (slide.type === 'quote') {
+        updatedHtml = stripOuterQuotes(visualContainer.innerHTML);
+      } else {
+        updatedHtml = visualContainer.innerHTML;
+      }
+      const normalizedHtml = normalizeLineBreaks(updatedHtml);
+      slide.text = preventOrphans(normalizedHtml);
+
+      activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+      const maxLines = getMaxLines();
+      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+      const lines = measureLines(slide.text, isPoetry);
+      activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
+      if (lines > maxLines) {
+        activeSlideLinesEl.className = 'badge danger';
+        activeSlideOverflowWarning.textContent = `⚠️ Warning: Text exceeds ${maxLines} lines! It will be cut off or scaled improperly. Reduce the text or split the slide.`;
+        activeSlideOverflowWarning.style.display = 'block';
+      } else {
+        activeSlideLinesEl.className = 'badge success';
+        activeSlideOverflowWarning.style.display = 'none';
+      }
+
+      // Re-render thumbnail in grid to keep it in sync
+      renderSlideDeck();
+      return;
+    }
+  }
+
+  alert("Please select the text in the slide preview or text box that you want to emphasize or de-emphasize.");
+}
+
+// Single Slide Direct 4K Download matching bulk export filename
+async function downloadActiveSlide() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide) return;
+
+  const progressModal = document.getElementById('progress-modal');
+  const progressStatus = document.getElementById('progress-status');
+  const progressBarFill = document.querySelector('.progress-bar-fill');
+  const progressPercentage = document.getElementById('progress-percentage');
+  const exportCanvas = document.getElementById('export-canvas');
+
+  progressModal.style.display = 'flex';
+  progressStatus.textContent = `Rendering slide ${activeSlideIndex + 1}...`;
+  progressBarFill.style.width = '50%';
+  progressPercentage.textContent = '50%';
+
+  try {
+    const blob = await renderSlideToCanvas(slide, exportCanvas);
+
+    progressBarFill.style.width = '100%';
+    progressPercentage.textContent = '100%';
+    progressStatus.textContent = 'Downloading 4K transparent PNG...';
+
+    const filename = getSlideFilename(slide, activeSlideIndex);
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    console.error("Single Slide Export Failed:", error);
+    alert(`Failed to export slide: ${error.message || error}`);
+  } finally {
+    progressModal.style.display = 'none';
+  }
+}
+
+// Event listeners for emphasis toggle and single slide download
+if (btnToggleEmphasis) {
+  btnToggleEmphasis.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // Prevent clearing selection on click
+  });
+  btnToggleEmphasis.addEventListener('click', () => {
+    toggleSelectionEmphasis();
+  });
+}
+
+if (btnDownloadActiveSlide) {
+  btnDownloadActiveSlide.addEventListener('click', () => {
+    downloadActiveSlide();
+  });
+}
+
+// Keyboard shortcuts for emphasis toggle: Cmd+E / Ctrl+E and Cmd+H / Ctrl+H
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 'e' || e.key.toLowerCase() === 'h')) {
+    if (currentView === 'editor') {
+      e.preventDefault();
+      toggleSelectionEmphasis();
+    }
+  }
+});
+
 // 15. Generate Action
 btnGenerate.addEventListener('click', async () => {
   const rawText = rawInputEl.value.trim();
@@ -1432,6 +1678,7 @@ async function renderSlideToCanvas(slide, canvas) {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
   const textColor = isLovers ? '#000000' : '#ffffff';
   const contextColor = isLovers ? `rgba(0, 0, 0, ${contextOpacityEl.value})` : `rgba(255, 255, 255, ${contextOpacityEl.value})`;
+  const hasHighlight = cleanText.includes('class="highlight"');
 
   // Set innerHTML based on slide type and active theme
   if (slide.type === 'scripture') {
@@ -1440,19 +1687,19 @@ async function renderSlideToCanvas(slide, canvas) {
     if (isLovers) {
       slideDiv.innerHTML = `
         <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
-          <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0;">${slide.refBook}</div>
-          <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-align: center; line-height: 1.2;">${slide.refVerse}</div>
+          <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
+          <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
         <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 546.4px; width: 2101.5px; height: 906.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
+        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 455px; width: 2101.5px; height: 1250px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
           <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 82px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
         </div>
       `;
     } else {
       slideDiv.innerHTML = `
         <div class="slide-left-column" style="width: 1363px; height: 2160px; display: flex; flex-direction: column; justify-content: center; align-items: center; position: absolute; left: 0; top: 0; padding: 200px 50px; box-sizing: border-box;">
-          <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 20px;">${slide.refBook}</div>
-          <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-align: center; line-height: 1.2;">${slide.refVerse}</div>
+          <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 20px; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
+          <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
         <div class="slide-divider" style="position: absolute; left: 1363px; top: 680px; width: 3px; height: 800px; background-color: #ffffff;"></div>
         <div class="slide-right-column" style="position: absolute; left: 1463px; top: 465px; width: 2177px; height: 1230px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
@@ -1463,26 +1710,42 @@ async function renderSlideToCanvas(slide, canvas) {
   } else if (slide.type === 'quote') {
     const quoteFontSize = isLovers ? '82px' : '85px';
     const authorTracking = isLovers ? '0.15em' : '2px';
+    const quoteTextColor = hasHighlight ? contextColor : textColor;
     slideDiv.innerHTML = `
       <div class="slide-quote-container" style="position: absolute; left: 200px; top: 200px; width: 3440px; height: 1760px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
-        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: ${quoteFontSize}; line-height: 1.45; color: ${textColor}; text-align: center; margin-bottom: 80px; width: 100%;">“${cleanText}”</div>
-        <div class="slide-quote-author" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 70px; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: ${authorTracking};">${slide.author}</div>
+        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: ${quoteFontSize}; line-height: 1.45; color: ${quoteTextColor}; text-align: center; margin-bottom: 80px; width: 100%;">“${cleanText}”</div>
+        <div class="slide-quote-author" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 70px; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: ${authorTracking}; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
       </div>
     `;
   } else {
     const titleWeight = isLovers ? '500' : '300';
+    const titleTextColor = hasHighlight ? contextColor : textColor;
     slideDiv.innerHTML = `
-      <div class="slide-center-title" style="position: absolute; left: 200px; top: 200px; width: 3440px; height: 1760px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: ${titleWeight}; font-size: 90px; line-height: 1.6; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box;">
+      <div class="slide-center-title" style="position: absolute; left: 200px; top: 200px; width: 3440px; height: 1760px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: ${titleWeight}; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">
         <div style="width: 100%;">${cleanText}</div>
       </div>
     `;
   }
   
-  // We need to inject inline styles or classes so highlight class renders correctly
+  // Inject inline styles so highlight class and slashed zero render correctly in html2canvas
   const styleEl = document.createElement('style');
   styleEl.textContent = `
-    .slide-text-body span.highlight { color: ${textColor} !important; opacity: 1.0 !important; }
-    .slide-text-body sup { font-size: 0.6em; vertical-align: super; margin-right: 8px; opacity: inherit; }
+    * {
+      font-variant-numeric: slashed-zero !important;
+      font-feature-settings: "zero" 1, "ss03" 1 !important;
+    }
+    .slide-text-body span.highlight,
+    .slide-center-title span.highlight,
+    .slide-quote-text span.highlight {
+      color: ${textColor} !important;
+      opacity: 1.0 !important;
+    }
+    .slide-text-body sup {
+      font-size: 0.6em;
+      vertical-align: super;
+      margin-right: 8px;
+      opacity: inherit;
+    }
   `;
   
   offscreenContainer.appendChild(styleEl);
@@ -1600,21 +1863,8 @@ btnExport.addEventListener('click', async () => {
         progressBarFill.style.width = `${pct}%`;
         progressPercentage.textContent = `${pct}%`;
         
-        // Create a nice file name, e.g. 001_john_6_30.png or 003_sermon_point.png
-        let filename = String(i + 1).padStart(3, '0') + '_';
-        if (slide.type === 'scripture') {
-          const bookClean = slide.refBook.toLowerCase().replace(/\s+/g, '_');
-          const verseClean = slide.refVerse.replace(/:/g, '_');
-          filename += `${bookClean}_${verseClean}.png`;
-        } else {
-          // Truncate title for filename
-          const titleClean = slide.rawText.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '_')
-            .substring(0, 20)
-            .replace(/^_+|_+$/g, '');
-          filename += `point_${titleClean}.png`;
-        }
-        
+        // Consistent filename matching single slide download
+        const filename = getSlideFilename(slide, i);
         zip.file(filename, blob);
       }
       
