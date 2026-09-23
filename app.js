@@ -995,6 +995,199 @@ function renderSlideDeck() {
   });
 }
 
+async function getChapterDataForSlide(slide) {
+  let bookId = slide.bookId;
+  let chapter = slide.chapter;
+  let translation = slide.translation || translationEl.value;
+
+  if (!bookId && slide.refBook) {
+    const cleanBook = slide.refBook.toLowerCase().replace(/[^a-z0-9]/g, '');
+    bookId = BOOK_MAP[cleanBook];
+  }
+  if (!chapter && slide.refVerse) {
+    const match = slide.refVerse.match(/(\d+):/);
+    if (match) chapter = parseInt(match[1]);
+  }
+
+  if (bookId && chapter) {
+    return await fetchChapter(bookId, chapter, translation);
+  }
+  return null;
+}
+
+function updateContextButtonStates(slide) {
+  const btnAddUpper = document.getElementById('btn-add-upper-context');
+  const btnAddLower = document.getElementById('btn-add-lower-context');
+  if (!btnAddUpper || !btnAddLower) return;
+
+  if (!slide || slide.type !== 'scripture') {
+    btnAddUpper.disabled = true;
+    btnAddLower.disabled = true;
+    return;
+  }
+
+  const matches = [...slide.text.matchAll(/<sup>(\d+)<\/sup>/g)];
+  const currentVerses = matches.map(m => parseInt(m[1])).filter(n => !isNaN(n));
+  const currentMinVerse = currentVerses.length > 0 ? Math.min(...currentVerses) : (slide.blockStart || slide.targetVerse || 1);
+  const currentMaxVerse = currentVerses.length > 0 ? Math.max(...currentVerses) : (slide.blockEnd || slide.targetVerse || 1);
+
+  if (currentMinVerse <= 1) {
+    btnAddUpper.disabled = true;
+    btnAddUpper.title = 'Already at verse 1 of chapter';
+    btnAddUpper.innerHTML = '<span class="icon">▲</span> Add Upper Context';
+  } else {
+    btnAddUpper.disabled = false;
+    btnAddUpper.title = `Add verse ${currentMinVerse - 1} as upper context`;
+    btnAddUpper.innerHTML = `<span class="icon">▲</span> Add Upper Context (v${currentMinVerse - 1})`;
+  }
+
+  btnAddLower.disabled = false;
+  btnAddLower.title = `Add verse ${currentMaxVerse + 1} as lower context`;
+  btnAddLower.innerHTML = `<span class="icon">▼</span> Add Lower Context (v${currentMaxVerse + 1})`;
+}
+
+async function addUpperContext() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide || slide.type !== 'scripture') return;
+
+  const btnAddUpper = document.getElementById('btn-add-upper-context');
+  if (btnAddUpper) btnAddUpper.disabled = true;
+
+  try {
+    const chapterData = await getChapterDataForSlide(slide);
+    if (!chapterData) {
+      alert("Could not load chapter data to add context.");
+      return;
+    }
+
+    const matches = [...slide.text.matchAll(/<sup>(\d+)<\/sup>/g)];
+    const currentVerses = matches.map(m => parseInt(m[1])).filter(n => !isNaN(n));
+    const currentMinVerse = currentVerses.length > 0 ? Math.min(...currentVerses) : (slide.blockStart || slide.targetVerse || 1);
+    const targetUpperVerse = currentMinVerse - 1;
+
+    if (targetUpperVerse < 1) {
+      alert("Already at the first verse of the chapter (Verse 1).");
+      return;
+    }
+
+    const verseObj = chapterData.find(v => v.verse === targetUpperVerse);
+    if (!verseObj) {
+      alert(`Verse ${targetUpperVerse} was not found in chapter.`);
+      return;
+    }
+
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    let cleanText = verseObj.text.trim();
+    if (isPoetry) {
+      cleanText = formatPoeticVerse(cleanText);
+    }
+
+    const upperHtml = `<span><sup>${targetUpperVerse}</sup>${cleanText}</span>`;
+    if (isPoetry) {
+      slide.text = preventOrphans(`${upperHtml}<br />${slide.text}`);
+    } else {
+      slide.text = preventOrphans(`${upperHtml} ${slide.text}`);
+    }
+    slide.blockStart = targetUpperVerse;
+
+    // Update UI
+    editorBodyEl.innerHTML = slide.text;
+    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+
+    const maxLines = getMaxLines();
+    const lines = measureLines(slide.text, isPoetry);
+    activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
+    if (lines > maxLines) {
+      activeSlideLinesEl.className = 'badge danger';
+      activeSlideOverflowWarning.textContent = `⚠️ Warning: Text exceeds ${maxLines} lines! It will be cut off or scaled improperly. Reduce the text or split the slide.`;
+      activeSlideOverflowWarning.style.display = 'block';
+    } else {
+      activeSlideLinesEl.className = 'badge success';
+      activeSlideOverflowWarning.style.display = 'none';
+    }
+
+    updateContextButtonStates(slide);
+    renderSlideDeck();
+    scaleEditorCanvas();
+  } catch (err) {
+    console.error("Error adding upper context:", err);
+    alert("Failed to add upper context: " + err.message);
+  } finally {
+    if (btnAddUpper) btnAddUpper.disabled = false;
+  }
+}
+
+async function addLowerContext() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide || slide.type !== 'scripture') return;
+
+  const btnAddLower = document.getElementById('btn-add-lower-context');
+  if (btnAddLower) btnAddLower.disabled = true;
+
+  try {
+    const chapterData = await getChapterDataForSlide(slide);
+    if (!chapterData) {
+      alert("Could not load chapter data to add context.");
+      return;
+    }
+
+    const matches = [...slide.text.matchAll(/<sup>(\d+)<\/sup>/g)];
+    const currentVerses = matches.map(m => parseInt(m[1])).filter(n => !isNaN(n));
+    const currentMaxVerse = currentVerses.length > 0 ? Math.max(...currentVerses) : (slide.blockEnd || slide.targetVerse || 1);
+    const targetLowerVerse = currentMaxVerse + 1;
+
+    if (targetLowerVerse > chapterData.length) {
+      alert(`Already at the last verse of the chapter (Verse ${chapterData.length}).`);
+      return;
+    }
+
+    const verseObj = chapterData.find(v => v.verse === targetLowerVerse);
+    if (!verseObj) {
+      alert(`Verse ${targetLowerVerse} was not found in chapter.`);
+      return;
+    }
+
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    let cleanText = verseObj.text.trim();
+    if (isPoetry) {
+      cleanText = formatPoeticVerse(cleanText);
+    }
+
+    const lowerHtml = `<span><sup>${targetLowerVerse}</sup>${cleanText}</span>`;
+    if (isPoetry) {
+      slide.text = preventOrphans(`${slide.text}<br />${lowerHtml}`);
+    } else {
+      slide.text = preventOrphans(`${slide.text} ${lowerHtml}`);
+    }
+    slide.blockEnd = targetLowerVerse;
+
+    // Update UI
+    editorBodyEl.innerHTML = slide.text;
+    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+
+    const maxLines = getMaxLines();
+    const lines = measureLines(slide.text, isPoetry);
+    activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
+    if (lines > maxLines) {
+      activeSlideLinesEl.className = 'badge danger';
+      activeSlideOverflowWarning.textContent = `⚠️ Warning: Text exceeds ${maxLines} lines! It will be cut off or scaled improperly. Reduce the text or split the slide.`;
+      activeSlideOverflowWarning.style.display = 'block';
+    } else {
+      activeSlideLinesEl.className = 'badge success';
+      activeSlideOverflowWarning.style.display = 'none';
+    }
+
+    updateContextButtonStates(slide);
+    renderSlideDeck();
+    scaleEditorCanvas();
+  } catch (err) {
+    console.error("Error adding lower context:", err);
+    alert("Failed to add lower context: " + err.message);
+  } finally {
+    if (btnAddLower) btnAddLower.disabled = false;
+  }
+}
+
 function renderActiveSlide() {
   if (slidesData.length === 0) return;
   
@@ -1033,6 +1226,11 @@ function renderActiveSlide() {
       activeSlideFormatContainer.style.display = 'flex';
       activeSlideFormatEl.value = slide.format;
     }
+    const upperContextBar = document.getElementById('editor-upper-context-bar');
+    const lowerContextBar = document.getElementById('editor-lower-context-bar');
+    if (upperContextBar) upperContextBar.style.display = 'flex';
+    if (lowerContextBar) lowerContextBar.style.display = 'flex';
+    updateContextButtonStates(slide);
   } else if (slide.type === 'quote') {
     editorBookEl.style.display = 'none';
     editorVerseEl.style.display = 'none';
@@ -1048,6 +1246,10 @@ function renderActiveSlide() {
     activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
     activeSlideTranslationContainer.style.display = 'none';
     if (activeSlideFormatContainer) activeSlideFormatContainer.style.display = 'none';
+    const upperContextBar = document.getElementById('editor-upper-context-bar');
+    const lowerContextBar = document.getElementById('editor-lower-context-bar');
+    if (upperContextBar) upperContextBar.style.display = 'none';
+    if (lowerContextBar) lowerContextBar.style.display = 'none';
   } else {
     editorBookEl.style.display = 'none';
     editorVerseEl.style.display = 'none';
@@ -1061,6 +1263,10 @@ function renderActiveSlide() {
     activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
     activeSlideTranslationContainer.style.display = 'none';
     if (activeSlideFormatContainer) activeSlideFormatContainer.style.display = 'none';
+    const upperContextBar = document.getElementById('editor-upper-context-bar');
+    const lowerContextBar = document.getElementById('editor-lower-context-bar');
+    if (upperContextBar) upperContextBar.style.display = 'none';
+    if (lowerContextBar) lowerContextBar.style.display = 'none';
   }
   
   // Calculate and display line count
@@ -1077,6 +1283,8 @@ function renderActiveSlide() {
     activeSlideLinesEl.className = 'badge success';
     activeSlideOverflowWarning.style.display = 'none';
   }
+  
+  scaleEditorCanvas();
 }
 
 // 11. Scale Editor Preview dynamically to fit parent
@@ -1084,13 +1292,18 @@ function scaleEditorCanvas() {
   const container = document.querySelector('.editor-main');
   if (!container || editorViewEl.style.display === 'none') return;
   
+  const upperBar = document.getElementById('editor-upper-context-bar');
+  const lowerBar = document.getElementById('editor-lower-context-bar');
+  const upperHeight = (upperBar && upperBar.style.display !== 'none' && upperBar.offsetHeight) ? upperBar.offsetHeight + 10 : 0;
+  const lowerHeight = (lowerBar && lowerBar.style.display !== 'none' && lowerBar.offsetHeight) ? lowerBar.offsetHeight + 10 : 0;
+
   const containerWidth = container.clientWidth - 48; // padding
-  const containerHeight = container.clientHeight - 48;
+  const containerHeight = container.clientHeight - 28 - upperHeight - lowerHeight;
   
   // Scale factor based on 3840x2160
   const scaleX = containerWidth / 3840;
   const scaleY = containerHeight / 2160;
-  const scaleFactor = Math.min(scaleX, scaleY, 1.0); // max 1.0
+  const scaleFactor = Math.max(0.1, Math.min(scaleX, scaleY, 1.0)); // max 1.0
   
   // Apply transform scale on the canvas
   slideCanvasPreview.style.transform = `scale(${scaleFactor})`;
@@ -1163,6 +1376,9 @@ activeSlideTextarea.addEventListener('input', (e) => {
     activeSlideLinesEl.className = 'badge success';
     activeSlideOverflowWarning.style.display = 'none';
   }
+  if (slide.type === 'scripture') {
+    updateContextButtonStates(slide);
+  }
 });
 
 // Inline contenteditable changes in editor canvas
@@ -1193,6 +1409,7 @@ slideCanvasPreview.addEventListener('input', (e) => {
       activeSlideLinesEl.className = 'badge success';
       activeSlideOverflowWarning.style.display = 'none';
     }
+    updateContextButtonStates(slide);
   } else if (target.classList.contains('slide-center-title')) {
     const normalizedHtml = normalizeLineBreaks(target.innerHTML);
     // Run preventOrphans on innerHTML to support manual line breaks (<br>)
@@ -1595,6 +1812,21 @@ if (btnToggleEmphasis) {
 if (btnDownloadActiveSlide) {
   btnDownloadActiveSlide.addEventListener('click', () => {
     downloadActiveSlide();
+  });
+}
+
+const btnAddUpperContext = document.getElementById('btn-add-upper-context');
+const btnAddLowerContext = document.getElementById('btn-add-lower-context');
+
+if (btnAddUpperContext) {
+  btnAddUpperContext.addEventListener('click', () => {
+    addUpperContext();
+  });
+}
+
+if (btnAddLowerContext) {
+  btnAddLowerContext.addEventListener('click', () => {
+    addLowerContext();
   });
 }
 

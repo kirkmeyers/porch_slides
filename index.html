@@ -149,6 +149,11 @@
           <div id="editor-view" class="slide-editor-container" style="display: none;">
             <div class="editor-layout">
               <div class="editor-main">
+                <div class="editor-context-bar top" id="editor-upper-context-bar" style="display: none;">
+                  <button id="btn-add-upper-context" class="btn btn-context-toggle" title="Add previous verse as context at the top of this slide">
+                    <span class="icon">▲</span> Add Upper Context
+                  </button>
+                </div>
                 <div class="canvas-scaler-wrapper">
                   <!-- The simulated 16:9 Slide Canvas -->
                   <div id="slide-canvas-preview" class="slide-canvas checkerboard">
@@ -170,6 +175,11 @@
                       <div class="slide-quote-author" contenteditable="true" data-placeholder="AUTHOR">AUTHOR</div>
                     </div>
                   </div>
+                </div>
+                <div class="editor-context-bar bottom" id="editor-lower-context-bar" style="display: none;">
+                  <button id="btn-add-lower-context" class="btn btn-context-toggle" title="Add next verse as context at the bottom of this slide">
+                    <span class="icon">▼</span> Add Lower Context
+                  </button>
                 </div>
               </div>
 
