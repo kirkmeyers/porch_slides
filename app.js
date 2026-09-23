@@ -963,8 +963,8 @@ function renderSlideDeck() {
     btnExport.innerHTML = `<span class="icon">📥</span> Download 4K Transparent ZIP`;
   }
   
-  // Scale of visual thumbnails is ~0.08 of 4K (3840x2160) which is 307x172px.
-  // The layout will draw full size, and the CSS will scale it inside card.
+  // Responsive scale of visual thumbnails to match 16:9 card aspect ratio.
+  // The layout draws at 4K (3840x2160), and CSS scales it dynamically via --grid-scale.
   slidesData.forEach((slide, idx) => {
     const card = document.createElement('div');
     card.className = `grid-slide-card checkerboard ${idx === activeSlideIndex ? 'active' : ''}`;
@@ -972,7 +972,6 @@ function renderSlideDeck() {
     // Core slide structure
     const contentWrapper = document.createElement('div');
     contentWrapper.className = 'grid-slide-content-wrapper';
-    contentWrapper.style.transform = 'scale(0.08)';
     
     const slideCanvas = document.createElement('div');
     slideCanvas.className = 'slide-canvas';
@@ -1023,6 +1022,8 @@ function renderSlideDeck() {
     
     gridViewEl.appendChild(card);
   });
+  
+  updateGridScale();
 }
 
 async function getChapterDataForSlide(slide) {
@@ -1364,8 +1365,38 @@ function scaleEditorCanvas() {
   }
 }
 
-// Listen to editor window resize
-window.addEventListener('resize', scaleEditorCanvas);
+// Dynamically scale grid thumbnails to match card's 16:9 bounding box
+function updateGridScale() {
+  if (!gridViewEl || gridViewEl.style.display === 'none') return;
+  const firstCard = gridViewEl.querySelector('.grid-slide-card');
+  let cardWidth = 0;
+  if (firstCard && firstCard.clientWidth > 0) {
+    cardWidth = firstCard.clientWidth;
+  } else if (gridViewEl.clientWidth > 0) {
+    const containerWidth = gridViewEl.clientWidth;
+    const gap = 24;
+    const minColWidth = 320;
+    const cols = Math.max(1, Math.floor((containerWidth + gap) / (minColWidth + gap)));
+    cardWidth = (containerWidth - (cols - 1) * gap) / cols;
+  }
+  if (cardWidth > 0) {
+    const scale = cardWidth / 3840;
+    gridViewEl.style.setProperty('--grid-scale', scale);
+  }
+}
+
+// Listen to window resize for both editor and grid view
+window.addEventListener('resize', () => {
+  scaleEditorCanvas();
+  updateGridScale();
+});
+
+if (typeof ResizeObserver !== 'undefined' && gridViewEl) {
+  const gridResizeObserver = new ResizeObserver(() => {
+    updateGridScale();
+  });
+  gridResizeObserver.observe(gridViewEl);
+}
 
 // 12. Switch Views
 function switchView(view) {
@@ -1376,6 +1407,7 @@ function switchView(view) {
     gridViewEl.style.display = 'grid';
     editorViewEl.style.display = 'none';
     renderSlideDeck(); // refresh grid to show active status
+    requestAnimationFrame(updateGridScale);
   } else {
     toggleGridEl.classList.remove('active');
     toggleEditorEl.classList.add('active');

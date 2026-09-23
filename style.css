@@ -478,7 +478,16 @@ input[type="range"] {
   top: 0;
   left: 0;
   transform-origin: top left;
+  transform: scale(var(--grid-scale, 0.0833333));
   pointer-events: none; /* Interact through the card wrapper instead */
+}
+
+/* Remove slide canvas double border, box-shadow and background inside grid cards */
+.grid-slide-card .slide-canvas,
+.theme-lovers-series .grid-slide-card .slide-canvas {
+  box-shadow: none !important;
+  border: none !important;
+  background-color: transparent !important;
 }
 
 /* Slide Editor layout */
