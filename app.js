@@ -211,12 +211,9 @@ function formatPoeticVerse(text) {
   return split;
 }
 
-// Helper to get max lines limit based on active theme
+// Helper to get max lines limit (locked at 8 lines max for all themes)
 function getMaxLines() {
-  if (slideThemeEl && slideThemeEl.value === 'lovers-series') {
-    return 8;
-  }
-  return 12;
+  return 8;
 }
 
 // 5. Initialize Font Face Loading & Line Calibration
@@ -261,8 +258,8 @@ function updateCalibrationForTheme() {
     }
   } else {
     document.body.classList.remove('theme-lovers-series');
-    if (lineLimitEl) lineLimitEl.value = '12';
-    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 12 lines max (Porch Generic)';
+    if (lineLimitEl) lineLimitEl.value = '8';
+    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 8 lines max (Porch Generic)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2177px';
       lineCounterCalibration.style.fontSize = '85px';
@@ -591,18 +588,51 @@ async function fetchChapter(bookId, chapter, translation) {
 
 // 8. Line measurement and Overflow Detection
 function measureLines(htmlContent, isPoetry = false) {
+  if (!htmlContent || !htmlContent.trim()) return 0;
+
   if (isPoetry) {
     lineCounterMeasurement.style.textAlign = 'left';
   } else {
     lineCounterMeasurement.style.textAlign = 'justify';
   }
-  lineCounterMeasurement.innerHTML = htmlContent;
+
+  // Strip trailing break tags to prevent empty ghost lines
+  const cleanHtml = htmlContent.trim().replace(/(<br\s*\/?>)+$/gi, '');
+  lineCounterMeasurement.innerHTML = cleanHtml;
+
+  // 1. Precise line-box detection using DOM Range
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(lineCounterMeasurement);
+    const rects = range.getClientRects();
+
+    if (rects && rects.length > 0) {
+      const lineTops = [];
+      const threshold = singleLineHeight * 0.45;
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (r.width === 0 && r.height === 0) continue;
+        const exists = lineTops.some(top => Math.abs(top - r.top) < threshold);
+        if (!exists) {
+          lineTops.push(r.top);
+        }
+      }
+      if (lineTops.length > 0) {
+        lineCounterMeasurement.innerHTML = '';
+        return lineTops.length;
+      }
+    }
+  } catch (err) {
+    console.warn("DOM Range measurement fallback:", err);
+  }
+
+  // 2. Robust scrollHeight fallback with descender tolerance
   const scrollHeight = lineCounterMeasurement.scrollHeight;
-  // Clear container
   lineCounterMeasurement.innerHTML = '';
-  
-  // Calculate lines based on calibrated singleLineHeight
-  return Math.round(scrollHeight / singleLineHeight);
+
+  // Subtract a small descender tolerance (15% of line height) so 8.1 lines isn't rounded up to 9
+  const effectiveHeight = Math.max(0, scrollHeight - (singleLineHeight * 0.15));
+  return Math.max(1, Math.round(effectiveHeight / singleLineHeight));
 }
 
 // Compilation helper for Bible Passage HTML with a specific block range
@@ -1988,7 +2018,7 @@ async function renderSlideToCanvas(slide, canvas) {
           <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
         <div class="slide-divider" style="position: absolute; left: 1363px; top: 680px; width: 3px; height: 800px; background-color: #ffffff;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1463px; top: 465px; width: 2177px; height: 1230px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
+        <div class="slide-right-column" style="position: absolute; left: 1463px; top: 480px; width: 2177px; height: 1200px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
           <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 85px; line-height: 1.45; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
         </div>
       `;

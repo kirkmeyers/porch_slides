@@ -638,9 +638,9 @@ input[type="range"] {
 .slide-right-column {
   position: absolute;
   left: 1463px;
-  top: 340px; /* Centered vertically to allow text to extend 1 line above/below the divider line */
+  top: 480px;
   width: 2177px;
-  height: 1480px; /* Max height to fit 12 lines of text exactly */
+  height: 1200px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -670,10 +670,15 @@ input[type="range"] {
   opacity: 1.0;
 }
 
-/* Superscript verse number styling */
-.slide-text-body sup {
+/* Superscript verse number styling - line-height 0 to prevent line box inflation */
+sup,
+.slide-text-body sup,
+.hidden-measurement-container sup {
   font-size: 0.6em;
-  vertical-align: super;
+  line-height: 0;
+  vertical-align: baseline;
+  position: relative;
+  top: -0.4em;
   margin-right: 8px;
   opacity: inherit; /* Inherits highlight or muted opacity from container/span */
 }
