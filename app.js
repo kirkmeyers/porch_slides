@@ -213,6 +213,9 @@ function formatPoeticVerse(text) {
 
 // Helper to get max lines limit based on active theme
 function getMaxLines() {
+  if (slideThemeEl && slideThemeEl.value === 'lovers-series') {
+    return 8;
+  }
   return 12;
 }
 
@@ -223,14 +226,18 @@ document.fonts.ready.then(() => {
 });
 
 function calibrateLineHeight() {
+  const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
+  const defaultHeight = isLovers ? 100.04 : 123.25;
   const calibrationSpan = document.getElementById('calibration-single-line');
   if (calibrationSpan) {
     const rect = calibrationSpan.getBoundingClientRect();
     if (rect.height > 0) {
       singleLineHeight = rect.height;
       console.log(`Calibrated Single Line Height: ${singleLineHeight}px`);
+      return;
     }
   }
+  singleLineHeight = defaultHeight;
 }
 
 function updateCalibrationForTheme() {
@@ -240,8 +247,8 @@ function updateCalibrationForTheme() {
   
   if (isLovers) {
     document.body.classList.add('theme-lovers-series');
-    if (lineLimitEl) lineLimitEl.value = '12';
-    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 12 lines max (Lover\'s Series)';
+    if (lineLimitEl) lineLimitEl.value = '8';
+    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 8 lines max (Lover\'s Series)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2101.5px';
       lineCounterCalibration.style.fontSize = '82px';
@@ -660,29 +667,83 @@ function splitLongVerse(verseNumber, verseText, maxLines, isPoetry = false) {
   return slides;
 }
 
-function calculateBlockRange(targetVerse, totalVerses, contextSize, isSingleVerse = false) {
-  const blockSize = 2 * contextSize + 1;
-  // If contextSize is 2, we attempt to position the target verse at index 1 (position 2)
-  // for sequence ranges, but for a single verse request we want it at position 3 (index 2)
-  let start;
-  if (contextSize === 2 && !isSingleVerse) {
-    start = targetVerse - 1;
-  } else {
-    start = targetVerse - contextSize;
+function getCandidateContextPairs(maxBefore, maxAfter, isSequence, isLastInSequence) {
+  const candidates = [];
+  for (let b = 0; b <= maxBefore; b++) {
+    for (let a = 0; a <= maxAfter; a++) {
+      candidates.push({ before: b, after: a, totalContext: b + a });
+    }
   }
-  
-  let end = start + blockSize - 1;
-  
-  // Clamping boundaries while preserving block size if possible
-  if (start < 1) {
-    start = 1;
-    end = Math.min(totalVerses, start + blockSize - 1);
-  } else if (end > totalVerses) {
-    end = totalVerses;
-    start = Math.max(1, end - blockSize + 1);
+
+  candidates.sort((c1, c2) => {
+    // 1. Maximize total context
+    if (c2.totalContext !== c1.totalContext) {
+      return c2.totalContext - c1.totalContext;
+    }
+
+    // 2. Tie-breakers
+    if (isSequence) {
+      if (!isLastInSequence) {
+        // More verses follow: prefer having context after (a >= 1)
+        const c1HasAfter = c1.after >= 1 ? 1 : 0;
+        const c2HasAfter = c2.after >= 1 ? 1 : 0;
+        if (c2HasAfter !== c1HasAfter) return c2HasAfter - c1HasAfter;
+
+        const bal1 = Math.abs(c1.before - c1.after);
+        const bal2 = Math.abs(c2.before - c2.after);
+        if (bal1 !== bal2) return bal1 - bal2;
+
+        return c2.after - c1.after;
+      } else {
+        // Last verse in sequence: prefer having context before (b >= 1)
+        const c1HasBefore = c1.before >= 1 ? 1 : 0;
+        const c2HasBefore = c2.before >= 1 ? 1 : 0;
+        if (c2HasBefore !== c1HasBefore) return c2HasBefore - c1HasBefore;
+
+        const bal1 = Math.abs(c1.before - c1.after);
+        const bal2 = Math.abs(c2.before - c2.after);
+        if (bal1 !== bal2) return bal1 - bal2;
+
+        return c2.before - c1.before;
+      }
+    } else {
+      // Single verse: prefer balanced (1, 1) over (0, 2) or (2, 0)
+      const bal1 = Math.abs(c1.before - c1.after);
+      const bal2 = Math.abs(c2.before - c2.after);
+      if (bal1 !== bal2) return bal1 - bal2;
+      return c2.after - c1.after;
+    }
+  });
+
+  return candidates;
+}
+
+function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLines, isPoetry = false, isSequence = false, isLastInSequence = false) {
+  if (requestedContext <= 0) {
+    const singleHtml = compilePassageHtmlForBlock(chapterData, targetVerse, targetVerse, targetVerse, isPoetry);
+    if (measureLines(singleHtml, isPoetry) <= maxLines) {
+      return { start: targetVerse, end: targetVerse, html: singleHtml };
+    }
+    return null;
   }
-  
-  return { start, end };
+
+  const totalVerses = chapterData.length;
+  const maxBefore = Math.min(requestedContext, targetVerse - 1);
+  const maxAfter = Math.min(requestedContext, totalVerses - targetVerse);
+
+  const candidates = getCandidateContextPairs(maxBefore, maxAfter, isSequence, isLastInSequence);
+
+  for (const cand of candidates) {
+    const start = targetVerse - cand.before;
+    const end = targetVerse + cand.after;
+    const passageHtml = compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry);
+    const lines = measureLines(passageHtml, isPoetry);
+    if (lines <= maxLines) {
+      return { start, end, html: passageHtml, lines };
+    }
+  }
+
+  return null; // Even single target verse exceeds maxLines
 }
 
 // 9. Generate Slide Outline array
@@ -740,64 +801,62 @@ async function buildSlides(parsedRequests) {
       const isPoetry = isPoeticBook(bookId, bookName);
       const slideFormat = isPoetry ? 'poetry' : 'prose';
 
-      // Track active block for context grouping (only when context is set to default of 2 before, 2 after)
+      // Track active block for context grouping across consecutive sequence slides
       let activeBlockStart = null;
       let activeBlockEnd = null;
+      const requestedContext = parseInt(contextWindowEl.value) || 0;
       
       // Generate slide for each verse requested in the range
-      for (const targetVerse of verses) {
+      for (let i = 0; i < verses.length; i++) {
+        const targetVerse = verses[i];
+        const isLastInSequence = (i === verses.length - 1);
         const targetObj = chapterData.find(v => v.verse === targetVerse);
         if (!targetObj) continue; // Verse doesn't exist in chapter
         
-        let contextSize = parseInt(contextWindowEl.value);
         let slideTextHtml = '';
         let fits = false;
+        let chosenStart = null;
+        let chosenEnd = null;
         
-        // 1. Try to reuse active block if contextSize === 2 and target is in positions 2 to 4 of current block (or position 1 if starting at verse 1)
-        if (contextSize === 2 && activeBlockStart !== null && activeBlockEnd !== null) {
-          const pos = targetVerse - activeBlockStart + 1;
-          const minPos = (activeBlockStart === 1) ? 1 : 2;
-          if (targetVerse >= activeBlockStart && targetVerse <= activeBlockEnd && pos >= minPos && pos <= 4) {
+        // 1. Try to reuse active block if targetVerse is within it and not prematurely cut off
+        if (requestedContext > 0 && activeBlockStart !== null && activeBlockEnd !== null) {
+          const inRange = targetVerse >= activeBlockStart && targetVerse <= activeBlockEnd;
+          const hasRoomAhead = (targetVerse < activeBlockEnd) || isLastInSequence;
+          
+          if (inRange && hasRoomAhead) {
             const passageHtml = compilePassageHtmlForBlock(chapterData, targetVerse, activeBlockStart, activeBlockEnd, isPoetry);
             if (measureLines(passageHtml, isPoetry) <= maxLines) {
               slideTextHtml = passageHtml;
               fits = true;
+              chosenStart = activeBlockStart;
+              chosenEnd = activeBlockEnd;
             }
           }
         }
         
-        // 2. If it did not fit or no active block exists, run the sliding window constraints solver
+        // 2. If it did not fit or active block couldn't be reused, find the best block for this verse
         if (!fits) {
-          while (contextSize >= 0) {
-            let start, end;
-            if (contextSize === 2) {
-              const range = calculateBlockRange(targetVerse, chapterData.length, 2, verses.length === 1);
-              start = range.start;
-              end = range.end;
-            } else {
-              start = Math.max(1, targetVerse - contextSize);
-              end = Math.min(chapterData.length, targetVerse + contextSize);
-            }
-            
-            const passageHtml = compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry);
-            const lineCount = measureLines(passageHtml, isPoetry);
-            
-            if (lineCount <= maxLines) {
-              slideTextHtml = passageHtml;
-              fits = true;
-              if (contextSize === 2) {
-                // Set as new active block
-                activeBlockStart = start;
-                activeBlockEnd = end;
-              } else {
-                // Reset active block if context is reduced
-                activeBlockStart = null;
-                activeBlockEnd = null;
-              }
-              break;
-            }
-            
-            contextSize--; // Try smaller context
+          const best = findBestBlockForVerse(
+            chapterData,
+            targetVerse,
+            requestedContext,
+            maxLines,
+            isPoetry,
+            verses.length > 1,
+            isLastInSequence
+          );
+          
+          if (best) {
+            slideTextHtml = best.html;
+            fits = true;
+            chosenStart = best.start;
+            chosenEnd = best.end;
+            activeBlockStart = best.start;
+            activeBlockEnd = best.end;
+          } else {
+            // Even single target verse exceeds maxLines
+            activeBlockStart = null;
+            activeBlockEnd = null;
           }
         }
         
@@ -1210,24 +1269,19 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
     if (chapterData) {
       const maxLines = getMaxLines();
       const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-      let contextSize = parseInt(contextWindowEl.value);
-      let slideTextHtml = '';
-      let fits = false;
-      
-      while (contextSize >= 0) {
-        const passageHtml = compilePassageHtml(chapterData, slide.targetVerse, contextSize, isPoetry);
-        const lineCount = measureLines(passageHtml, isPoetry);
-        
-        if (lineCount <= maxLines) {
-          slideTextHtml = passageHtml;
-          fits = true;
-          break;
-        }
-        contextSize--;
-      }
-      
-      if (fits) {
-        slide.text = preventOrphans(slideTextHtml);
+      const requestedContext = parseInt(contextWindowEl.value) || 0;
+      const best = findBestBlockForVerse(
+        chapterData,
+        slide.targetVerse,
+        requestedContext,
+        maxLines,
+        isPoetry,
+        false,
+        false
+      );
+
+      if (best) {
+        slide.text = preventOrphans(best.html);
       } else {
         // Fallback to target verse only
         const targetObj = chapterData.find(v => v.verse === slide.targetVerse);
@@ -1691,7 +1745,7 @@ async function renderSlideToCanvas(slide, canvas) {
           <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
         <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 455px; width: 2101.5px; height: 1250px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
+        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 546.4px; width: 2101.5px; height: 906.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
           <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 82px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
         </div>
       `;
