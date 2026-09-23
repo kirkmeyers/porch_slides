@@ -566,6 +566,7 @@ input[type="range"] {
 .canvas-scaler-wrapper {
   position: relative;
   overflow: visible;
+  margin: auto 0;
 }
 
 /* 4K Slide Canvas Styles - Standardized at 4K pixels! */
@@ -586,14 +587,15 @@ input[type="range"] {
 .slide-left-column {
   position: absolute;
   left: 0;
-  top: 0;
+  top: 480px;
   width: 1363px;
-  height: 2160px;
+  height: 1200px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 200px 50px;
+  padding: 0 50px;
+  box-sizing: border-box;
 }
 
 .slide-ref-book {
@@ -687,12 +689,13 @@ sup,
 .slide-center-title {
   position: absolute;
   left: 200px;
-  top: 200px;
+  top: 480px;
   width: 3440px;
-  height: 1760px;
+  height: 1200px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 300;
   font-size: 90px;
@@ -713,9 +716,9 @@ sup,
 .slide-quote-container {
   position: absolute;
   left: 200px;
-  top: 200px;
+  top: 480px;
   width: 3440px;
-  height: 1760px;
+  height: 1200px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -875,8 +878,16 @@ sup,
   opacity: 1.0;
 }
 
-/* Lover's Series: Sermon Point */
+/* Lover's Series: Sermon Point - vertically centered where scripture is */
 .theme-lovers-series .slide-center-title {
+  left: 200px;
+  top: 546.4px;
+  width: 3440px;
+  height: 906.3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   color: #000000;
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 500;
@@ -884,6 +895,18 @@ sup,
   letter-spacing: 2px;
   font-variant-numeric: slashed-zero;
   font-feature-settings: "zero" 1, "ss03" 1;
+}
+
+/* Lover's Series: Quote Slide - vertically centered where scripture is */
+.theme-lovers-series .slide-quote-container {
+  left: 200px;
+  top: 546.4px;
+  width: 3440px;
+  height: 906.3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Lover's Series: Quote Slide */

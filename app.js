@@ -1258,8 +1258,14 @@ function renderActiveSlide() {
     }
     const upperContextBar = document.getElementById('editor-upper-context-bar');
     const lowerContextBar = document.getElementById('editor-lower-context-bar');
-    if (upperContextBar) upperContextBar.style.display = 'flex';
-    if (lowerContextBar) lowerContextBar.style.display = 'flex';
+    if (upperContextBar) {
+      upperContextBar.style.visibility = 'visible';
+      upperContextBar.style.pointerEvents = 'auto';
+    }
+    if (lowerContextBar) {
+      lowerContextBar.style.visibility = 'visible';
+      lowerContextBar.style.pointerEvents = 'auto';
+    }
     updateContextButtonStates(slide);
   } else if (slide.type === 'quote') {
     editorBookEl.style.display = 'none';
@@ -1278,8 +1284,14 @@ function renderActiveSlide() {
     if (activeSlideFormatContainer) activeSlideFormatContainer.style.display = 'none';
     const upperContextBar = document.getElementById('editor-upper-context-bar');
     const lowerContextBar = document.getElementById('editor-lower-context-bar');
-    if (upperContextBar) upperContextBar.style.display = 'none';
-    if (lowerContextBar) lowerContextBar.style.display = 'none';
+    if (upperContextBar) {
+      upperContextBar.style.visibility = 'hidden';
+      upperContextBar.style.pointerEvents = 'none';
+    }
+    if (lowerContextBar) {
+      lowerContextBar.style.visibility = 'hidden';
+      lowerContextBar.style.pointerEvents = 'none';
+    }
   } else {
     editorBookEl.style.display = 'none';
     editorVerseEl.style.display = 'none';
@@ -1295,8 +1307,14 @@ function renderActiveSlide() {
     if (activeSlideFormatContainer) activeSlideFormatContainer.style.display = 'none';
     const upperContextBar = document.getElementById('editor-upper-context-bar');
     const lowerContextBar = document.getElementById('editor-lower-context-bar');
-    if (upperContextBar) upperContextBar.style.display = 'none';
-    if (lowerContextBar) lowerContextBar.style.display = 'none';
+    if (upperContextBar) {
+      upperContextBar.style.visibility = 'hidden';
+      upperContextBar.style.pointerEvents = 'none';
+    }
+    if (lowerContextBar) {
+      lowerContextBar.style.visibility = 'hidden';
+      lowerContextBar.style.pointerEvents = 'none';
+    }
   }
   
   // Calculate and display line count
@@ -1324,8 +1342,8 @@ function scaleEditorCanvas() {
   
   const upperBar = document.getElementById('editor-upper-context-bar');
   const lowerBar = document.getElementById('editor-lower-context-bar');
-  const upperHeight = (upperBar && upperBar.style.display !== 'none' && upperBar.offsetHeight) ? upperBar.offsetHeight + 10 : 0;
-  const lowerHeight = (lowerBar && lowerBar.style.display !== 'none' && lowerBar.offsetHeight) ? lowerBar.offsetHeight + 10 : 0;
+  const upperHeight = (upperBar && upperBar.offsetHeight) ? upperBar.offsetHeight + 10 : 54;
+  const lowerHeight = (lowerBar && lowerBar.offsetHeight) ? lowerBar.offsetHeight + 10 : 54;
 
   const containerWidth = container.clientWidth - 48; // padding
   const containerHeight = container.clientHeight - 28 - upperHeight - lowerHeight;
@@ -2013,7 +2031,7 @@ async function renderSlideToCanvas(slide, canvas) {
       `;
     } else {
       slideDiv.innerHTML = `
-        <div class="slide-left-column" style="width: 1363px; height: 2160px; display: flex; flex-direction: column; justify-content: center; align-items: center; position: absolute; left: 0; top: 0; padding: 200px 50px; box-sizing: border-box;">
+        <div class="slide-left-column" style="position: absolute; left: 0; top: 480px; width: 1363px; height: 1200px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 50px; box-sizing: border-box;">
           <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 20px; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
           <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
@@ -2027,8 +2045,10 @@ async function renderSlideToCanvas(slide, canvas) {
     const quoteFontSize = isLovers ? '82px' : '85px';
     const authorTracking = isLovers ? '0.15em' : '2px';
     const quoteTextColor = hasHighlight ? contextColor : textColor;
+    const quoteTop = isLovers ? '546.4px' : '480px';
+    const quoteHeight = isLovers ? '906.3px' : '1200px';
     slideDiv.innerHTML = `
-      <div class="slide-quote-container" style="position: absolute; left: 200px; top: 200px; width: 3440px; height: 1760px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
+      <div class="slide-quote-container" style="position: absolute; left: 200px; top: ${quoteTop}; width: 3440px; height: ${quoteHeight}; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
         <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: ${quoteFontSize}; line-height: 1.45; color: ${quoteTextColor}; text-align: center; margin-bottom: 80px; width: 100%;">“${cleanText}”</div>
         <div class="slide-quote-author" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 70px; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: ${authorTracking}; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
       </div>
@@ -2036,8 +2056,10 @@ async function renderSlideToCanvas(slide, canvas) {
   } else {
     const titleWeight = isLovers ? '500' : '300';
     const titleTextColor = hasHighlight ? contextColor : textColor;
+    const titleTop = isLovers ? '546.4px' : '480px';
+    const titleHeight = isLovers ? '906.3px' : '1200px';
     slideDiv.innerHTML = `
-      <div class="slide-center-title" style="position: absolute; left: 200px; top: 200px; width: 3440px; height: 1760px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: ${titleWeight}; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">
+      <div class="slide-center-title" style="position: absolute; left: 200px; top: ${titleTop}; width: 3440px; height: ${titleHeight}; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: ${titleWeight}; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">
         <div style="width: 100%;">${cleanText}</div>
       </div>
     `;
