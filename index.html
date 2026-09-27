@@ -129,6 +129,14 @@
             <button id="toggle-grid" class="toggle-btn active">Grid View</button>
             <button id="toggle-editor" class="toggle-btn">Slide Editor</button>
           </div>
+          <div class="preview-actions">
+            <button id="btn-share-draft" class="btn btn-secondary btn-header-action" title="Copy a shareable link to this slide deck" disabled>
+              <span class="icon">🔗</span> Share Draft
+            </button>
+            <button id="btn-proof-sheet" class="btn btn-secondary btn-header-action" title="Open formatted proof sheet for printing or PDF" disabled>
+              <span class="icon">📄</span> Proof Sheet
+            </button>
+          </div>
           <div class="preview-summary">
             <span id="slide-count">0 slides generated</span>
           </div>
@@ -136,6 +144,20 @@
 
         <!-- Scrollable Workspace -->
         <div class="preview-workspace">
+          <!-- Review Mode Banner (Visible when viewing a shared draft) -->
+          <div id="review-banner" class="review-banner" style="display: none;">
+            <div class="review-banner-content">
+              <span class="review-banner-badge">SHARED DRAFT</span>
+              <span class="review-banner-text">You are reviewing a shared sermon slide deck. You can edit any slide directly, copy an updated link, or download the 4K PNGs.</span>
+            </div>
+            <div class="review-banner-actions">
+              <button id="btn-copy-review-link" class="btn btn-primary btn-sm">
+                <span class="icon">🔗</span> Copy Updated Link
+              </button>
+              <button id="btn-dismiss-review-banner" class="btn btn-ghost btn-sm" title="Dismiss banner">✕</button>
+            </div>
+          </div>
+
           <!-- Slide Sorter Grid -->
           <div id="grid-view" class="slides-grid-container">
             <div class="empty-state">
@@ -274,6 +296,32 @@
       <span id="progress-percentage">0%</span>
     </div>
   </div>
+
+  <!-- Proof Sheet Modal (Print & PDF Review) -->
+  <div id="proof-sheet-modal" class="modal-overlay proof-modal" style="display: none;">
+    <div class="proof-modal-card">
+      <div class="proof-header no-print">
+        <div class="proof-header-info">
+          <h2>📄 Sermon Slide Proof Sheet</h2>
+          <p id="proof-header-meta">Theme: Lover's Series | Translation: ESV | 0 Slides</p>
+        </div>
+        <div class="proof-header-actions">
+          <button id="btn-print-proof" class="btn btn-primary">
+            <span class="icon">🖨️</span> Print / Save as PDF
+          </button>
+          <button id="btn-close-proof" class="btn btn-secondary">
+            Close
+          </button>
+        </div>
+      </div>
+      <div id="proof-sheet-content" class="proof-sheet-body">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <!-- Main scripts -->
   <script type="module" src="./app.js"></script>

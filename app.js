@@ -156,6 +156,18 @@ const editorQuoteAuthorEl = slideCanvasPreview.querySelector('.slide-quote-autho
 const lineCounterCalibration = document.getElementById('line-counter-calibration');
 const lineCounterMeasurement = document.getElementById('line-counter-measurement');
 
+const btnShareDraft = document.getElementById('btn-share-draft');
+const btnProofSheet = document.getElementById('btn-proof-sheet');
+const reviewBanner = document.getElementById('review-banner');
+const btnCopyReviewLink = document.getElementById('btn-copy-review-link');
+const btnDismissReviewBanner = document.getElementById('btn-dismiss-review-banner');
+const proofSheetModal = document.getElementById('proof-sheet-modal');
+const proofSheetContent = document.getElementById('proof-sheet-content');
+const proofHeaderMeta = document.getElementById('proof-header-meta');
+const btnPrintProof = document.getElementById('btn-print-proof');
+const btnCloseProof = document.getElementById('btn-close-proof');
+const toastContainer = document.getElementById('toast-container');
+
 // Poetic Books: Job (18), Psalms (19), Proverbs (20), Song of Solomon (22), Lamentations (25)
 const POETIC_BOOK_IDS = new Set([18, 19, 20, 22, 25]);
 
@@ -952,11 +964,15 @@ function renderSlideDeck() {
     `;
     slideCountEl.textContent = '0 slides generated';
     btnExport.disabled = true;
+    if (btnShareDraft) btnShareDraft.disabled = true;
+    if (btnProofSheet) btnProofSheet.disabled = true;
     return;
   }
   
   slideCountEl.textContent = `${slidesData.length} slides generated`;
   btnExport.disabled = false;
+  if (btnShareDraft) btnShareDraft.disabled = false;
+  if (btnProofSheet) btnProofSheet.disabled = false;
   if (slidesData.length === 1) {
     btnExport.innerHTML = `<span class="icon">📥</span> Download 4K Transparent PNG`;
   } else {
@@ -2268,3 +2284,263 @@ btnExport.addEventListener('click', async () => {
     }
   }
 });
+
+// ==========================================================================
+// 15. Collaborative Review Links & Proof Sheet (Phase 1)
+// ==========================================================================
+
+// Toast Notification Helper
+function showToast(message, duration = 3200) {
+  if (!toastContainer) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span>${message}</span>`;
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentElement) toast.remove();
+  }, duration);
+}
+
+// Safe Clipboard Copy Helper (with fallback)
+async function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.warn("navigator.clipboard failed, falling back to execCommand", e);
+    }
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  const successful = document.execCommand('copy');
+  document.body.removeChild(textArea);
+  return successful;
+}
+
+// Compress deck state into a URL-safe Base64 DEFLATE string via JSZip
+async function compressDeckPayload(payload) {
+  const jsonStr = JSON.stringify(payload);
+  const zip = new JSZip();
+  zip.file('d', jsonStr);
+  const b64 = await zip.generateAsync({
+    type: 'base64',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 9 }
+  });
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Decompress URL-safe Base64 DEFLATE string back to JSON payload
+async function decompressDeckPayload(hashStr) {
+  let b64 = hashStr.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4 !== 0) {
+    b64 += '=';
+  }
+  const zip = await JSZip.loadAsync(b64, { base64: true });
+  const file = zip.file('d');
+  if (!file) throw new Error('Invalid deck payload file');
+  const jsonStr = await file.async('string');
+  return JSON.parse(jsonStr);
+}
+
+// Generate and share review link
+async function handleShareDraft() {
+  if (!slidesData || slidesData.length === 0) {
+    alert("Please generate slides first before sharing a draft.");
+    return;
+  }
+  
+  try {
+    const payload = {
+      v: 1,
+      theme: slideThemeEl ? slideThemeEl.value : 'generic',
+      translation: translationEl ? translationEl.value : 'esv',
+      outline: rawInputEl ? rawInputEl.value : '',
+      slides: slidesData
+    };
+    
+    const hash = await compressDeckPayload(payload);
+    const fullUrl = `${window.location.origin}${window.location.pathname}#review=${hash}`;
+    
+    history.replaceState(null, '', `#review=${hash}`);
+    
+    const success = await copyToClipboard(fullUrl);
+    if (success) {
+      showToast('🔗 Review link copied to clipboard! Anyone with this link can view and edit this deck.');
+    } else {
+      prompt('Copy this review link to share:', fullUrl);
+    }
+  } catch (err) {
+    console.error('Failed to generate review link:', err);
+    alert('Failed to generate review link: ' + (err.message || err));
+  }
+}
+
+// Open Proof Sheet modal with formatted slide list
+function openProofSheet() {
+  if (!slidesData || slidesData.length === 0) {
+    alert("Please generate slides first before opening the proof sheet.");
+    return;
+  }
+  
+  const themeName = slideThemeEl && slideThemeEl.options[slideThemeEl.selectedIndex]
+    ? slideThemeEl.options[slideThemeEl.selectedIndex].text 
+    : 'Porch Generic';
+  const transName = translationEl ? translationEl.value.toUpperCase() : 'ESV';
+  
+  if (proofHeaderMeta) {
+    proofHeaderMeta.textContent = `Theme: ${themeName} | Translation: ${transName} | ${slidesData.length} Slides`;
+  }
+  
+  let html = '';
+  slidesData.forEach((slide, idx) => {
+    if (slide.type === 'scripture') {
+      const poetryClass = (slide.format === 'poetry') ? 'format-poetry' : '';
+      html += `
+        <div class="proof-slide-item">
+          <div class="proof-slide-header">
+            <div class="proof-slide-header-left">
+              <span class="proof-slide-num">Slide ${idx + 1}</span>
+              <span class="proof-slide-badge">Scripture</span>
+              <span class="proof-slide-ref">${slide.refBook} ${slide.refVerse}</span>
+            </div>
+            <span class="proof-slide-badge">${slide.translation || transName}</span>
+          </div>
+          <div class="proof-slide-text ${poetryClass}">
+            ${slide.text}
+          </div>
+        </div>
+      `;
+    } else if (slide.type === 'quote') {
+      html += `
+        <div class="proof-slide-item">
+          <div class="proof-slide-header">
+            <div class="proof-slide-header-left">
+              <span class="proof-slide-num">Slide ${idx + 1}</span>
+              <span class="proof-slide-badge">Quote</span>
+            </div>
+          </div>
+          <div class="proof-slide-quote-text">
+            “${slide.text}”
+          </div>
+          <div class="proof-slide-quote-author">
+            — ${slide.author}
+          </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="proof-slide-item">
+          <div class="proof-slide-header">
+            <div class="proof-slide-header-left">
+              <span class="proof-slide-num">Slide ${idx + 1}</span>
+              <span class="proof-slide-badge">Sermon Point</span>
+            </div>
+          </div>
+          <div class="proof-slide-point">
+            ${slide.text}
+          </div>
+        </div>
+      `;
+    }
+  });
+  
+  if (proofSheetContent) {
+    proofSheetContent.innerHTML = html;
+  }
+  
+  if (proofSheetModal) {
+    proofSheetModal.style.display = 'flex';
+  }
+}
+
+// Check and load review deck from URL hash (#review=... or #deck=...)
+async function checkUrlHashForReview() {
+  const hash = window.location.hash;
+  if (!hash) return;
+  
+  if (hash.startsWith('#review=') || hash.startsWith('#deck=')) {
+    const encoded = hash.replace(/^#(review|deck)=/, '');
+    if (!encoded) return;
+    
+    try {
+      const payload = await decompressDeckPayload(encoded);
+      if (payload && payload.slides && payload.slides.length > 0) {
+        if (payload.theme && slideThemeEl) {
+          slideThemeEl.value = payload.theme;
+          updateCalibrationForTheme();
+        }
+        if (payload.translation && translationEl) {
+          translationEl.value = payload.translation;
+        }
+        if (payload.outline && rawInputEl && !rawInputEl.value) {
+          rawInputEl.value = payload.outline;
+        }
+        slidesData = payload.slides;
+        activeSlideIndex = 0;
+        
+        switchView('grid');
+        renderSlideDeck();
+        
+        if (reviewBanner) {
+          reviewBanner.style.display = 'flex';
+        }
+        showToast(`📋 Loaded shared draft: ${slidesData.length} slides ready for review`);
+      }
+    } catch (err) {
+      console.error('Failed to parse review link hash:', err);
+      showToast('⚠️ Could not load shared review link. Data may be incomplete or invalid.');
+    }
+  }
+}
+
+// Event Listeners for Sharing & Proofing
+if (btnShareDraft) {
+  btnShareDraft.addEventListener('click', handleShareDraft);
+}
+
+if (btnCopyReviewLink) {
+  btnCopyReviewLink.addEventListener('click', handleShareDraft);
+}
+
+if (btnDismissReviewBanner) {
+  btnDismissReviewBanner.addEventListener('click', () => {
+    if (reviewBanner) reviewBanner.style.display = 'none';
+  });
+}
+
+if (btnProofSheet) {
+  btnProofSheet.addEventListener('click', openProofSheet);
+}
+
+if (btnCloseProof) {
+  btnCloseProof.addEventListener('click', () => {
+    if (proofSheetModal) proofSheetModal.style.display = 'none';
+  });
+}
+
+if (proofSheetModal) {
+  proofSheetModal.addEventListener('click', (e) => {
+    if (e.target === proofSheetModal) {
+      proofSheetModal.style.display = 'none';
+    }
+  });
+}
+
+if (btnPrintProof) {
+  btnPrintProof.addEventListener('click', () => {
+    window.print();
+  });
+}
+
+// Initial check on page startup
+checkUrlHashForReview();
+
+// Listen for hashchange events
+window.addEventListener('hashchange', checkUrlHashForReview);
