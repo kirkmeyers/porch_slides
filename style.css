@@ -298,6 +298,19 @@ input[type="range"] {
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
 
+.btn-propresenter {
+  background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3);
+}
+
+.btn-propresenter:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c2410c 0%, #ea580c 100%);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.5);
+  transform: translateY(-1px);
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

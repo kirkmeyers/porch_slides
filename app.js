@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import html2canvas from 'html2canvas';
+import { exportProPresenterBundle, extractSlideNotes } from './propresenter.js';
 
 // 1. Bible Book Abbreviations Mapping
 const BOOK_MAP = {
@@ -117,6 +118,7 @@ const contextOpacityEl = document.getElementById('context-opacity');
 const contextOpacityValEl = document.getElementById('context-opacity-value');
 const btnGenerate = document.getElementById('btn-generate');
 const btnExport = document.getElementById('btn-export');
+const btnExportProPresenter = document.getElementById('btn-export-propresenter');
 const btnDemo = document.getElementById('btn-demo');
 const btnDemoLovers = document.getElementById('btn-demo-lovers');
 const slideCountEl = document.getElementById('slide-count');
@@ -135,6 +137,7 @@ const editorTitleEl = slideCanvasPreview.querySelector('.slide-center-title');
 const activeSlideTypeSelect = document.getElementById('active-slide-type-select');
 const activeSlideLinesEl = document.getElementById('active-slide-lines');
 const activeSlideOverflowWarning = document.getElementById('active-slide-overflow-warning');
+const activeSlideNotesPreview = document.getElementById('active-slide-notes-preview');
 const activeSlideTextarea = document.getElementById('active-slide-textarea');
 
 const btnPrevSlide = document.getElementById('btn-prev-slide');
@@ -964,6 +967,7 @@ function renderSlideDeck() {
     `;
     slideCountEl.textContent = '0 slides generated';
     btnExport.disabled = true;
+    if (btnExportProPresenter) btnExportProPresenter.disabled = true;
     if (btnShareDraft) btnShareDraft.disabled = true;
     if (btnProofSheet) btnProofSheet.disabled = true;
     return;
@@ -971,6 +975,7 @@ function renderSlideDeck() {
   
   slideCountEl.textContent = `${slidesData.length} slides generated`;
   btnExport.disabled = false;
+  if (btnExportProPresenter) btnExportProPresenter.disabled = false;
   if (btnShareDraft) btnShareDraft.disabled = false;
   if (btnProofSheet) btnProofSheet.disabled = false;
   if (slidesData.length === 1) {
@@ -1154,6 +1159,7 @@ async function addUpperContext() {
     }
 
     updateContextButtonStates(slide);
+    updateActiveSlideNotesPreview();
     renderSlideDeck();
     scaleEditorCanvas();
   } catch (err) {
@@ -1225,6 +1231,7 @@ async function addLowerContext() {
     }
 
     updateContextButtonStates(slide);
+    updateActiveSlideNotesPreview();
     renderSlideDeck();
     scaleEditorCanvas();
   } catch (err) {
@@ -1349,7 +1356,20 @@ function renderActiveSlide() {
     activeSlideOverflowWarning.style.display = 'none';
   }
   
+  updateActiveSlideNotesPreview();
   scaleEditorCanvas();
+}
+
+// Update the ProPresenter Notes preview box in the editor sidebar
+function updateActiveSlideNotesPreview() {
+  if (!activeSlideNotesPreview) return;
+  const slide = slidesData[activeSlideIndex];
+  if (!slide) {
+    activeSlideNotesPreview.textContent = '-';
+    return;
+  }
+  const notes = extractSlideNotes(slide);
+  activeSlideNotesPreview.textContent = notes || '(No notes for this slide)';
 }
 
 // 11. Scale Editor Preview dynamically to fit parent
@@ -1475,6 +1495,7 @@ activeSlideTextarea.addEventListener('input', (e) => {
   if (slide.type === 'scripture') {
     updateContextButtonStates(slide);
   }
+  updateActiveSlideNotesPreview();
 });
 
 // Inline contenteditable changes in editor canvas
@@ -1542,6 +1563,7 @@ slideCanvasPreview.addEventListener('input', (e) => {
   } else if (target.classList.contains('slide-quote-author')) {
     slide.author = target.textContent.toUpperCase();
   }
+  updateActiveSlideNotesPreview();
 });
 
 activeSlideTypeSelect.addEventListener('change', (e) => {
@@ -1848,6 +1870,7 @@ function toggleSelectionEmphasis() {
 
       // Re-render thumbnail in grid to keep it in sync
       renderSlideDeck();
+      updateActiveSlideNotesPreview();
       return;
     }
   }
@@ -2284,6 +2307,64 @@ btnExport.addEventListener('click', async () => {
     }
   }
 });
+
+// ProPresenter .probundle Export Handler
+if (btnExportProPresenter) {
+  btnExportProPresenter.addEventListener('click', async () => {
+    if (slidesData.length === 0) return;
+
+    btnExportProPresenter.disabled = true;
+    btnExport.disabled = true;
+    btnExportProPresenter.innerHTML = `<span class="icon">⌛</span> Exporting ProPresenter...`;
+
+    const canvas = document.getElementById('export-canvas');
+    const progressModal = document.getElementById('progress-modal');
+    const progressStatus = document.getElementById('progress-status');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+    const progressPercentage = document.getElementById('progress-percentage');
+    progressModal.style.display = 'flex';
+
+    try {
+      const rawDate = document.getElementById('sermon-date').value || new Date().toISOString().split('T')[0];
+      const dateStr = rawDate.replace(/-/g, '');
+      const activeTheme = THEMES[selectedThemeKey];
+      const themeTitle = activeTheme.title;
+      const presentationName = `${dateStr} - ${themeTitle}`;
+
+      const bundleBlob = await exportProPresenterBundle({
+        slidesData,
+        presentationName,
+        renderSlideToCanvas,
+        canvas,
+        getSlideFilename,
+        onProgress: (current, total, statusText, pct) => {
+          progressStatus.textContent = statusText;
+          progressBarFill.style.width = `${pct}%`;
+          progressPercentage.textContent = `${pct}%`;
+        }
+      });
+
+      const downloadUrl = URL.createObjectURL(bundleBlob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${presentationName}.probundle`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      showToast('📦 ProPresenter bundle exported! Double-click to import into Pro7.');
+    } catch (error) {
+      console.error('ProPresenter Export Failed:', error);
+      alert(`ProPresenter export failed: ${error.message || error}\n\nStack:\n${error.stack || ''}`);
+    } finally {
+      progressModal.style.display = 'none';
+      btnExportProPresenter.disabled = false;
+      btnExport.disabled = false;
+      btnExportProPresenter.innerHTML = `<span class="icon">📦</span> Export to ProPresenter (.probundle)`;
+    }
+  });
+}
 
 // ==========================================================================
 // 15. Collaborative Review Links & Proof Sheet (Phase 1)
