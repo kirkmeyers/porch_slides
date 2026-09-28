@@ -2569,7 +2569,7 @@ async function renderSlideToCanvas(slide, canvas) {
       line-height: 0;
       vertical-align: baseline;
       position: relative;
-      top: -0.4em;
+      top: -0.85em;
       margin-right: 0;
       opacity: inherit;
     }
