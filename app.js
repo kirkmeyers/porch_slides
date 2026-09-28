@@ -226,9 +226,9 @@ function formatPoeticVerse(text) {
   return split;
 }
 
-// Helper to get max lines limit (locked at 8 lines max for all themes)
+// Helper to get max lines limit (locked at 9 lines max for all themes)
 function getMaxLines() {
-  return 8;
+  return 9;
 }
 
 // 5. Initialize Font Face Loading & Line Calibration
@@ -259,31 +259,41 @@ function updateCalibrationForTheme() {
   
   if (isLovers) {
     document.body.classList.add('theme-lovers-series');
-    if (lineLimitEl) lineLimitEl.value = '8';
-    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 8 lines max (Lover\'s Series)';
+    if (lineLimitEl) lineLimitEl.value = '9';
+    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Lover\'s Series)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2101.5px';
       lineCounterCalibration.style.fontSize = '82px';
       lineCounterCalibration.style.lineHeight = '1.22';
+      lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
+      lineCounterCalibration.style.fontWeight = '500';
+      lineCounterCalibration.style.webkitFontSmoothing = 'subpixel-antialiased';
     }
     if (lineCounterMeasurement) {
       lineCounterMeasurement.style.width = '2101.5px';
       lineCounterMeasurement.style.fontSize = '82px';
       lineCounterMeasurement.style.lineHeight = '1.22';
+      lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
+      lineCounterMeasurement.style.fontWeight = '500';
+      lineCounterMeasurement.style.webkitFontSmoothing = 'subpixel-antialiased';
     }
   } else {
     document.body.classList.remove('theme-lovers-series');
-    if (lineLimitEl) lineLimitEl.value = '8';
-    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 8 lines max (Porch Generic)';
+    if (lineLimitEl) lineLimitEl.value = '9';
+    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Porch Generic)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2177px';
       lineCounterCalibration.style.fontSize = '85px';
       lineCounterCalibration.style.lineHeight = '1.45';
+      lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
+      lineCounterCalibration.style.fontWeight = 'normal';
     }
     if (lineCounterMeasurement) {
       lineCounterMeasurement.style.width = '2177px';
       lineCounterMeasurement.style.fontSize = '85px';
       lineCounterMeasurement.style.lineHeight = '1.45';
+      lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
+      lineCounterMeasurement.style.fontWeight = 'normal';
     }
   }
   calibrateLineHeight();
@@ -312,14 +322,14 @@ function checkLocalFontPresence() {
   context.font = '72px sans-serif';
   const widthSans = context.measureText(text).width;
   
-  context.font = '72px "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", sans-serif';
+  context.font = '72px "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
   const widthHaas = context.measureText(text).width;
   
   if (widthSans !== widthHaas || navigator.userAgent.includes('Mac')) {
-    detector.textContent = 'Active (Local Font Resolved)';
+    detector.textContent = 'Active (Neue Haas Grotesk Display Pro Resolved)';
     detector.className = 'status-indicator success';
   } else {
-    detector.textContent = 'Active (Inter Fallback Engaged)';
+    detector.textContent = 'Active (System Fallback Engaged)';
     detector.className = 'status-indicator info';
   }
 }
@@ -791,13 +801,49 @@ function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLi
   return null; // Even single target verse exceeds maxLines
 }
 
+// Helper to coalesce contiguous scripture requests targeting same book & chapter
+function coalesceScriptureRequests(parsedRequests) {
+  const coalesced = [];
+  for (let i = 0; i < parsedRequests.length; i++) {
+    const item = parsedRequests[i];
+    if (item.type !== 'scripture') {
+      coalesced.push(item);
+      continue;
+    }
+    
+    const prev = coalesced.length > 0 ? coalesced[coalesced.length - 1] : null;
+    if (
+      prev &&
+      prev.type === 'scripture' &&
+      prev.bookId === item.bookId &&
+      prev.chapter === item.chapter &&
+      prev.translation === item.translation
+    ) {
+      const lastPrevVerse = prev.verses[prev.verses.length - 1];
+      const firstCurrVerse = item.verses[0];
+      if (firstCurrVerse === lastPrevVerse + 1 || prev.verses.includes(firstCurrVerse)) {
+        for (const v of item.verses) {
+          if (!prev.verses.includes(v)) {
+            prev.verses.push(v);
+          }
+        }
+        prev.verses.sort((a, b) => a - b);
+        continue;
+      }
+    }
+    coalesced.push({ ...item, verses: [...item.verses] });
+  }
+  return coalesced;
+}
+
 // 9. Generate Slide Outline array
 async function buildSlides(parsedRequests) {
   const slides = [];
   const globalTranslation = translationEl.value;
   const maxLines = getMaxLines();
+  const coalescedRequests = coalesceScriptureRequests(parsedRequests);
   
-  for (const item of parsedRequests) {
+  for (const item of coalescedRequests) {
     if (item.type === 'sermon-point') {
       slides.push({
         type: 'sermon-point',
@@ -845,67 +891,101 @@ async function buildSlides(parsedRequests) {
       
       const isPoetry = isPoeticBook(bookId, bookName);
       const slideFormat = isPoetry ? 'poetry' : 'prose';
-
-      // Track active block for context grouping across consecutive sequence slides
-      let activeBlockStart = null;
-      let activeBlockEnd = null;
       const requestedContext = parseInt(contextWindowEl.value) || 0;
-      
-      // Generate slide for each verse requested in the range
-      for (let i = 0; i < verses.length; i++) {
-        const targetVerse = verses[i];
-        const isLastInSequence = (i === verses.length - 1);
-        const targetObj = chapterData.find(v => v.verse === targetVerse);
-        if (!targetObj) continue; // Verse doesn't exist in chapter
-        
-        let slideTextHtml = '';
-        let fits = false;
-        let chosenStart = null;
-        let chosenEnd = null;
-        
-        // 1. Try to reuse active block if targetVerse is within it and not prematurely cut off
-        if (requestedContext > 0 && activeBlockStart !== null && activeBlockEnd !== null) {
-          const inRange = targetVerse >= activeBlockStart && targetVerse <= activeBlockEnd;
-          const hasRoomAhead = (targetVerse < activeBlockEnd) || isLastInSequence;
-          
-          if (inRange && hasRoomAhead) {
-            const passageHtml = compilePassageHtmlForBlock(chapterData, targetVerse, activeBlockStart, activeBlockEnd, isPoetry);
-            if (measureLines(passageHtml, isPoetry) <= maxLines) {
-              slideTextHtml = passageHtml;
-              fits = true;
-              chosenStart = activeBlockStart;
-              chosenEnd = activeBlockEnd;
+
+      // Stationary Sequence Chunker:
+      // Partition contiguous target verses into stationary blocks so that all slides
+      // in the same block share identical text and line wraps (only the highlight moves).
+      let vIdx = 0;
+      while (vIdx < verses.length) {
+        const firstTarget = verses[vIdx];
+        const firstTargetObj = chapterData.find(v => v.verse === firstTarget);
+        if (!firstTargetObj) {
+          vIdx++;
+          continue;
+        }
+
+        // Test if single target verse itself exceeds max lines
+        const formattedSingle = isPoetry ? formatPoeticVerse(firstTargetObj.text.trim()) : firstTargetObj.text.trim();
+        const singleHtml = compilePassageHtmlForBlock(chapterData, firstTarget, firstTarget, firstTarget, isPoetry);
+        if (measureLines(singleHtml, isPoetry) > maxLines) {
+          // Split oversized single verse across slides
+          const parts = splitLongVerse(firstTarget, formattedSingle, maxLines, isPoetry);
+          for (let p = 0; p < parts.length; p++) {
+            const partHtml = `<span class="highlight"><sup>${firstTarget}</sup>${parts[p]}</span>`;
+            slides.push({
+              type: 'scripture',
+              text: preventOrphans(partHtml),
+              refBook: bookName.toUpperCase(),
+              refVerse: `${chapter}:${firstTarget}`,
+              rawText: partHtml,
+              bookId: bookId,
+              bookName: bookName,
+              chapter: chapter,
+              targetVerse: firstTarget,
+              translation: targetTranslation,
+              format: slideFormat,
+              isPoetry: isPoetry
+            });
+          }
+          vIdx++;
+          continue;
+        }
+
+        // 1. Greedily find how many consecutive target verses fit together in this stationary block
+        let maxTargetEndIdx = vIdx;
+        while (maxTargetEndIdx + 1 < verses.length) {
+          const testStart = firstTarget;
+          const testEnd = verses[maxTargetEndIdx + 1];
+          const testHtml = compilePassageHtmlForBlock(chapterData, firstTarget, testStart, testEnd, isPoetry);
+          if (measureLines(testHtml, isPoetry) <= maxLines) {
+            maxTargetEndIdx++;
+          } else {
+            break;
+          }
+        }
+
+        const chunkTargetVerses = verses.slice(vIdx, maxTargetEndIdx + 1);
+        const coreStart = firstTarget;
+        const coreEnd = verses[maxTargetEndIdx];
+
+        // 2. Expand context before / after up to requestedContext (if room allows up to maxLines)
+        let finalBlockStart = coreStart;
+        let finalBlockEnd = coreEnd;
+
+        if (requestedContext > 0) {
+          const totalVerses = chapterData.length;
+          const maxBefore = Math.min(requestedContext, coreStart - 1);
+          const maxAfter = Math.min(requestedContext, totalVerses - coreEnd);
+
+          const candidates = [];
+          for (let b = maxBefore; b >= 0; b--) {
+            for (let a = maxAfter; a >= 0; a--) {
+              candidates.push({ before: b, after: a, total: b + a });
+            }
+          }
+          // Sort candidates: highest total context first, then prefer context after if following verses exist
+          candidates.sort((c1, c2) => {
+            if (c2.total !== c1.total) return c2.total - c1.total;
+            return c2.after - c1.after;
+          });
+
+          for (const cand of candidates) {
+            const candStart = coreStart - cand.before;
+            const candEnd = coreEnd + cand.after;
+            const testHtml = compilePassageHtmlForBlock(chapterData, firstTarget, candStart, candEnd, isPoetry);
+            if (measureLines(testHtml, isPoetry) <= maxLines) {
+              finalBlockStart = candStart;
+              finalBlockEnd = candEnd;
+              break;
             }
           }
         }
-        
-        // 2. If it did not fit or active block couldn't be reused, find the best block for this verse
-        if (!fits) {
-          const best = findBestBlockForVerse(
-            chapterData,
-            targetVerse,
-            requestedContext,
-            maxLines,
-            isPoetry,
-            verses.length > 1,
-            isLastInSequence
-          );
-          
-          if (best) {
-            slideTextHtml = best.html;
-            fits = true;
-            chosenStart = best.start;
-            chosenEnd = best.end;
-            activeBlockStart = best.start;
-            activeBlockEnd = best.end;
-          } else {
-            // Even single target verse exceeds maxLines
-            activeBlockStart = null;
-            activeBlockEnd = null;
-          }
-        }
-        
-        if (fits) {
+
+        // 3. Generate a slide for each target verse in the chunk using the exact same stationary passage block
+        for (let t = 0; t < chunkTargetVerses.length; t++) {
+          const targetVerse = chunkTargetVerses[t];
+          const slideTextHtml = compilePassageHtmlForBlock(chapterData, targetVerse, finalBlockStart, finalBlockEnd, isPoetry);
           slides.push({
             type: 'scripture',
             text: preventOrphans(slideTextHtml),
@@ -917,34 +997,15 @@ async function buildSlides(parsedRequests) {
             chapter: chapter,
             targetVerse: targetVerse,
             translation: targetTranslation,
-            blockStart: activeBlockStart,
-            blockEnd: activeBlockEnd,
+            blockStart: finalBlockStart,
+            blockEnd: finalBlockEnd,
             format: slideFormat,
             isPoetry: isPoetry
           });
-        } else {
-          // Single target verse itself exceeds max lines! Split it.
-          const formattedSingle = isPoetry ? formatPoeticVerse(targetObj.text) : targetObj.text;
-          const parts = splitLongVerse(targetVerse, formattedSingle, maxLines, isPoetry);
-          
-          for (let p = 0; p < parts.length; p++) {
-            const partHtml = `<span class="highlight"><sup>${targetVerse}</sup>${parts[p]}</span>`;
-            slides.push({
-              type: 'scripture',
-              text: preventOrphans(partHtml),
-              refBook: bookName.toUpperCase(),
-              refVerse: `${chapter}:${targetVerse}`,
-              rawText: partHtml,
-              bookId: bookId,
-              bookName: bookName,
-              chapter: chapter,
-              targetVerse: targetVerse,
-              translation: targetTranslation,
-              format: slideFormat,
-              isPoetry: isPoetry
-            });
-          }
         }
+
+        // Advance to next target verse beyond this chunk
+        vIdx = maxTargetEndIdx + 1;
       }
     }
   }
@@ -1070,11 +1131,15 @@ async function getChapterDataForSlide(slide) {
 function updateContextButtonStates(slide) {
   const btnAddUpper = document.getElementById('btn-add-upper-context');
   const btnAddLower = document.getElementById('btn-add-lower-context');
+  const btnRemoveUpper = document.getElementById('btn-remove-upper-context');
+  const btnRemoveLower = document.getElementById('btn-remove-lower-context');
   if (!btnAddUpper || !btnAddLower) return;
 
   if (!slide || slide.type !== 'scripture') {
     btnAddUpper.disabled = true;
     btnAddLower.disabled = true;
+    if (btnRemoveUpper) btnRemoveUpper.disabled = true;
+    if (btnRemoveLower) btnRemoveLower.disabled = true;
     return;
   }
 
@@ -1096,6 +1161,225 @@ function updateContextButtonStates(slide) {
   btnAddLower.disabled = false;
   btnAddLower.title = `Add verse ${currentMaxVerse + 1} as lower context`;
   btnAddLower.innerHTML = `<span class="icon">▼</span> Add Lower Context (v${currentMaxVerse + 1})`;
+
+  // Remove Upper & Lower Context states
+  if (btnRemoveUpper || btnRemoveLower) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = slide.text || '';
+    const highlightedSups = Array.from(tempDiv.querySelectorAll('.highlight sup'));
+    const highlightedVerseNums = highlightedSups.map(s => parseInt(s.textContent.trim())).filter(n => !isNaN(n));
+
+    let minHighlighted = null;
+    let maxHighlighted = null;
+    if (highlightedVerseNums.length > 0) {
+      minHighlighted = Math.min(...highlightedVerseNums);
+      maxHighlighted = Math.max(...highlightedVerseNums);
+    } else if (slide.targetVerse) {
+      minHighlighted = slide.targetVerse;
+      maxHighlighted = slide.targetVerse;
+    }
+
+    if (btnRemoveUpper) {
+      const canRemoveUpper = currentVerses.length > 1 && (minHighlighted !== null ? currentMinVerse < minHighlighted : true);
+      if (canRemoveUpper) {
+        btnRemoveUpper.disabled = false;
+        btnRemoveUpper.title = `Remove verse ${currentMinVerse} from upper context`;
+        btnRemoveUpper.innerHTML = `<span class="icon">✕</span> Remove Upper Context (v${currentMinVerse})`;
+      } else {
+        btnRemoveUpper.disabled = true;
+        btnRemoveUpper.title = 'No upper context to remove';
+        btnRemoveUpper.innerHTML = '<span class="icon">✕</span> Remove Upper Context';
+      }
+    }
+
+    if (btnRemoveLower) {
+      const canRemoveLower = currentVerses.length > 1 && (maxHighlighted !== null ? currentMaxVerse > maxHighlighted : true);
+      if (canRemoveLower) {
+        btnRemoveLower.disabled = false;
+        btnRemoveLower.title = `Remove verse ${currentMaxVerse} from lower context`;
+        btnRemoveLower.innerHTML = `<span class="icon">✕</span> Remove Lower Context (v${currentMaxVerse})`;
+      } else {
+        btnRemoveLower.disabled = true;
+        btnRemoveLower.title = 'No lower context to remove';
+        btnRemoveLower.innerHTML = '<span class="icon">✕</span> Remove Lower Context';
+      }
+    }
+  }
+}
+
+function removeUpperContext() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide || slide.type !== 'scripture') return;
+
+  const btnRemoveUpper = document.getElementById('btn-remove-upper-context');
+  if (btnRemoveUpper) btnRemoveUpper.disabled = true;
+
+  try {
+    const temp = document.createElement('div');
+    temp.innerHTML = slide.text;
+
+    const supList = Array.from(temp.querySelectorAll('sup'));
+    if (supList.length <= 1) return;
+
+    const firstSup = supList[0];
+    const secondSup = supList[1];
+
+    // Find topmost ancestor of firstSup that is a direct child of temp
+    let firstTop = firstSup;
+    while (firstTop.parentElement && firstTop.parentElement !== temp) {
+      firstTop = firstTop.parentElement;
+    }
+
+    // Find topmost ancestor of secondSup that is a direct child of temp
+    let secondTop = secondSup;
+    while (secondTop.parentElement && secondTop.parentElement !== temp) {
+      secondTop = secondTop.parentElement;
+    }
+
+    if (firstTop !== secondTop) {
+      let curr = firstTop.nextSibling;
+      while (curr && curr !== secondTop) {
+        const next = curr.nextSibling;
+        curr.remove();
+        curr = next;
+      }
+      firstTop.remove();
+    } else {
+      let curr = firstSup;
+      while (curr && curr !== secondSup) {
+        let next = curr.nextSibling;
+        if (curr.contains && curr.contains(secondSup)) {
+          break;
+        }
+        curr.remove();
+        curr = next;
+      }
+    }
+
+    const cleanedHtml = temp.innerHTML.trim().replace(/^(<br\s*\/?>|\s)+|(<br\s*\/?>|\s)+$/gi, '');
+    slide.text = preventOrphans(cleanedHtml);
+    slide.rawText = slide.text;
+
+    const remainingSups = [...slide.text.matchAll(/<sup>(\d+)<\/sup>/g)].map(m => parseInt(m[1])).filter(n => !isNaN(n));
+    if (remainingSups.length > 0) {
+      slide.blockStart = Math.min(...remainingSups);
+    }
+
+    // Update UI
+    editorBodyEl.innerHTML = slide.text;
+    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const maxLines = getMaxLines();
+    const lines = measureLines(slide.text, isPoetry);
+    activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
+    if (lines > maxLines) {
+      activeSlideLinesEl.className = 'badge danger';
+      activeSlideOverflowWarning.textContent = `⚠️ Warning: Text exceeds ${maxLines} lines! It will be cut off or scaled improperly. Reduce the text or split the slide.`;
+      activeSlideOverflowWarning.style.display = 'block';
+    } else {
+      activeSlideLinesEl.className = 'badge success';
+      activeSlideOverflowWarning.style.display = 'none';
+    }
+
+    updateContextButtonStates(slide);
+    updateActiveSlideNotesPreview();
+    renderSlideDeck();
+    scaleEditorCanvas();
+  } catch (err) {
+    console.error("Error removing upper context:", err);
+  } finally {
+    if (btnRemoveUpper) btnRemoveUpper.disabled = false;
+  }
+}
+
+function removeLowerContext() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide || slide.type !== 'scripture') return;
+
+  const btnRemoveLower = document.getElementById('btn-remove-lower-context');
+  if (btnRemoveLower) btnRemoveLower.disabled = true;
+
+  try {
+    const temp = document.createElement('div');
+    temp.innerHTML = slide.text;
+
+    const supList = Array.from(temp.querySelectorAll('sup'));
+    if (supList.length <= 1) return;
+
+    const lastSup = supList[supList.length - 1];
+    const prevSup = supList[supList.length - 2];
+
+    // Find topmost ancestor of lastSup that is a direct child of temp
+    let lastTop = lastSup;
+    while (lastTop.parentElement && lastTop.parentElement !== temp) {
+      lastTop = lastTop.parentElement;
+    }
+
+    // Find topmost ancestor of prevSup that is a direct child of temp
+    let prevTop = prevSup;
+    while (prevTop.parentElement && prevTop.parentElement !== temp) {
+      prevTop = prevTop.parentElement;
+    }
+
+    if (lastTop !== prevTop) {
+      let curr = prevTop.nextSibling;
+      while (curr && curr !== lastTop) {
+        const next = curr.nextSibling;
+        curr.remove();
+        curr = next;
+      }
+      let after = lastTop.nextSibling;
+      while (after) {
+        const next = after.nextSibling;
+        after.remove();
+        after = next;
+      }
+      lastTop.remove();
+    } else {
+      let curr = lastSup;
+      while (curr) {
+        const next = curr.nextSibling;
+        curr.remove();
+        curr = next;
+      }
+    }
+
+    const cleanedHtml = temp.innerHTML.trim().replace(/^(<br\s*\/?>|\s)+|(<br\s*\/?>|\s)+$/gi, '');
+    slide.text = preventOrphans(cleanedHtml);
+    slide.rawText = slide.text;
+
+    const remainingSups = [...slide.text.matchAll(/<sup>(\d+)<\/sup>/g)].map(m => parseInt(m[1])).filter(n => !isNaN(n));
+    if (remainingSups.length > 0) {
+      slide.blockEnd = Math.max(...remainingSups);
+    }
+
+    // Update UI
+    editorBodyEl.innerHTML = slide.text;
+    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const maxLines = getMaxLines();
+    const lines = measureLines(slide.text, isPoetry);
+    activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
+    if (lines > maxLines) {
+      activeSlideLinesEl.className = 'badge danger';
+      activeSlideOverflowWarning.textContent = `⚠️ Warning: Text exceeds ${maxLines} lines! It will be cut off or scaled improperly. Reduce the text or split the slide.`;
+      activeSlideOverflowWarning.style.display = 'block';
+    } else {
+      activeSlideLinesEl.className = 'badge success';
+      activeSlideOverflowWarning.style.display = 'none';
+    }
+
+    updateContextButtonStates(slide);
+    updateActiveSlideNotesPreview();
+    renderSlideDeck();
+    scaleEditorCanvas();
+  } catch (err) {
+    console.error("Error removing lower context:", err);
+  } finally {
+    if (btnRemoveLower) btnRemoveLower.disabled = false;
+  }
 }
 
 async function addUpperContext() {
@@ -1936,6 +2220,8 @@ if (btnDownloadActiveSlide) {
 
 const btnAddUpperContext = document.getElementById('btn-add-upper-context');
 const btnAddLowerContext = document.getElementById('btn-add-lower-context');
+const btnRemoveUpperContext = document.getElementById('btn-remove-upper-context');
+const btnRemoveLowerContext = document.getElementById('btn-remove-lower-context');
 
 if (btnAddUpperContext) {
   btnAddUpperContext.addEventListener('click', () => {
@@ -1946,6 +2232,18 @@ if (btnAddUpperContext) {
 if (btnAddLowerContext) {
   btnAddLowerContext.addEventListener('click', () => {
     addLowerContext();
+  });
+}
+
+if (btnRemoveUpperContext) {
+  btnRemoveUpperContext.addEventListener('click', () => {
+    removeUpperContext();
+  });
+}
+
+if (btnRemoveLowerContext) {
+  btnRemoveLowerContext.addEventListener('click', () => {
+    removeLowerContext();
   });
 }
 
@@ -2097,7 +2395,7 @@ async function renderSlideToCanvas(slide, canvas) {
         </div>
         <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
         <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 546.4px; width: 2101.5px; height: 906.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 82px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
+          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: 500; font-size: 82px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
         </div>
       `;
     } else {
@@ -2148,11 +2446,15 @@ async function renderSlideToCanvas(slide, canvas) {
     .slide-quote-text span.highlight {
       color: ${textColor} !important;
       opacity: 1.0 !important;
+      font-weight: 500 !important;
     }
     .slide-text-body sup {
-      font-size: 0.6em;
-      vertical-align: super;
-      margin-right: 8px;
+      font-size: 0.55em;
+      line-height: 0;
+      vertical-align: baseline;
+      position: relative;
+      top: -0.4em;
+      margin-right: 0;
       opacity: inherit;
     }
   `;

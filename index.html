@@ -90,8 +90,8 @@
 
             <div class="control-item">
               <label for="line-limit">Line Limit</label>
-              <input type="number" id="line-limit" min="5" max="15" value="8" readonly>
-              <small class="help-text">Locked at 8 lines max</small>
+              <input type="number" id="line-limit" min="5" max="15" value="9" readonly>
+              <small class="help-text">Locked at 9 lines max</small>
             </div>
           </div>
         </section>
@@ -178,6 +178,9 @@
                   <button id="btn-add-upper-context" class="btn btn-context-toggle" title="Add previous verse as context at the top of this slide">
                     <span class="icon">▲</span> Add Upper Context
                   </button>
+                  <button id="btn-remove-upper-context" class="btn btn-context-toggle btn-remove" title="Remove topmost context verse from this slide" disabled>
+                    <span class="icon">✕</span> Remove Upper Context
+                  </button>
                 </div>
                 <div class="canvas-scaler-wrapper">
                   <!-- The simulated 16:9 Slide Canvas -->
@@ -204,6 +207,9 @@
                 <div class="editor-context-bar bottom" id="editor-lower-context-bar" style="visibility: hidden; pointer-events: none;">
                   <button id="btn-add-lower-context" class="btn btn-context-toggle" title="Add next verse as context at the bottom of this slide">
                     <span class="icon">▼</span> Add Lower Context
+                  </button>
+                  <button id="btn-remove-lower-context" class="btn btn-context-toggle btn-remove" title="Remove bottommost context verse from this slide" disabled>
+                    <span class="icon">✕</span> Remove Lower Context
                   </button>
                 </div>
               </div>
@@ -287,10 +293,10 @@
     <canvas id="export-canvas" width="3840" height="2160" style="display: none;"></canvas>
 
     <!-- Hidden Line Counting Calibration Area -->
-    <div id="line-counter-calibration" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 82px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
+    <div id="line-counter-calibration" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: 500; font-size: 82px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
       <div id="calibration-single-line" style="display: block; width: 100%;">Line</div>
     </div>
-    <div id="line-counter-measurement" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 82px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
+    <div id="line-counter-measurement" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: 500; font-size: 82px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
     </div>
   </div>
 
