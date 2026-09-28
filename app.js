@@ -2677,7 +2677,10 @@ async function renderSlideToCanvas(slide, canvas) {
   document.body.appendChild(offscreenContainer);
   
   try {
-    // Wait for two frames to ensure full render
+    // Wait for fonts to be fully ready and two frames to ensure complete render
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     
     const renderedCanvas = await html2canvas(slideDiv, {
