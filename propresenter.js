@@ -90,9 +90,9 @@ export class ProtoWriter {
     this.totalLength += uint8Array.length;
   }
 
-  writeMessage(fieldNumber, subWriter) {
+  writeMessage(fieldNumber, subWriter, allowEmpty = false) {
     const bytes = subWriter.finish();
-    if (bytes.length === 0) return;
+    if (bytes.length === 0 && !allowEmpty) return;
     this.writeTag(fieldNumber, 2);
     this.writeVarint(bytes.length);
     this.chunks.push(bytes);
@@ -146,12 +146,26 @@ export function writeColor(writer, fieldNumber, color) {
 }
 
 /**
+ * Write a ProPresenter Graphics.Point message (x: 1, y: 2)
+ */
+export function writePoint(writer, fieldNumber, x, y) {
+  const pt = new ProtoWriter();
+  if (x !== 0) pt.writeDouble(1, x);
+  if (y !== 0) pt.writeDouble(2, y);
+  writer.writeMessage(fieldNumber, pt, true);
+}
+
+/**
  * Write a 4-point closed unit rectangle path for ProPresenter Graphic Element
+ * Matches native ProPresenter 7 bezier path structure:
+ * Point 0: (0,0) with q0=(0,0), q1=(0,0)
+ * Point 1: (1,0) with q0=(1,0), q1=(1,0)
+ * Point 2: (1,1) with q0=(1,1), q1=(1,1)
+ * Point 3: (0,1) with q0=(0,1), q1=(0,1)
  */
 export function writeRectanglePath(path) {
   path.writeBool(1, true); // closed: true
 
-  // 4 normalized unit bezier points: (0,0), (1,0), (1,1), (0,1)
   const coords = [
     [0, 0],
     [1, 0],
@@ -161,10 +175,9 @@ export function writeRectanglePath(path) {
 
   for (const [x, y] of coords) {
     const bp = new ProtoWriter();
-    const pt = new ProtoWriter();
-    pt.writeDouble(1, x);
-    pt.writeDouble(2, y);
-    bp.writeMessage(1, pt); // point
+    writePoint(bp, 1, x, y); // point
+    writePoint(bp, 2, x, y); // q0
+    writePoint(bp, 3, x, y); // q1
     path.writeMessage(2, bp); // points
   }
 
@@ -434,9 +447,7 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
     // Bounds: 0, 0, 3840, 2160 (tag 3 in Graphics.Element)
     const bounds = new ProtoWriter();
     const origin = new ProtoWriter();
-    origin.writeDouble(1, 0);
-    origin.writeDouble(2, 0);
-    bounds.writeMessage(1, origin);
+    bounds.writeMessage(1, origin, true); // origin: {}
     const elemSize = new ProtoWriter();
     elemSize.writeDouble(1, 3840);
     elemSize.writeDouble(2, 2160);
@@ -480,7 +491,25 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
     natSize.writeDouble(1, 3840);
     natSize.writeDouble(2, 2160);
     drawing.writeMessage(5, natSize);
+    const customBounds = new ProtoWriter();
+    drawing.writeMessage(7, customBounds, true); // custom_image_bounds: {}
+    const cropInsets = new ProtoWriter();
+    drawing.writeMessage(14, cropInsets, true); // crop_insets: {}
+    drawing.writeInt32(15, 1); // alpha_type: ALPHA_TYPE_STRAIGHT
     imgProps.writeMessage(1, drawing);
+
+    // File Properties (tag 2 in ImageTypeProperties)
+    const fileProps = new ProtoWriter();
+    const localUrl = new ProtoWriter();
+    localUrl.writeInt32(3, 1); // platform: PLATFORM_MACOS
+    localUrl.writeString(2, `Media/${item.filename}`);
+    const localFileRel = new ProtoWriter();
+    localFileRel.writeInt32(1, 10); // root: ROOT_SHOW
+    localFileRel.writeString(2, `Media/${item.filename}`);
+    localUrl.writeMessage(4, localFileRel);
+    fileProps.writeMessage(1, localUrl);
+    imgProps.writeMessage(2, fileProps);
+
     media.writeMessage(5, imgProps);
 
     fill.writeMessage(3, media);
