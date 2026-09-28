@@ -89,6 +89,15 @@
             </div>
 
             <div class="control-item">
+              <label for="scripture-font-size">Scripture Font Size</label>
+              <div class="range-wrapper">
+                <input type="range" id="scripture-font-size" min="60" max="95" step="1" value="75">
+                <span id="scripture-font-size-value">75px</span>
+              </div>
+              <small class="help-text">Default: 75px (Lover's), 78px (Generic)</small>
+            </div>
+
+            <div class="control-item">
               <label for="line-limit">Line Limit</label>
               <input type="number" id="line-limit" min="5" max="15" value="9" readonly>
               <small class="help-text">Locked at 9 lines max</small>
@@ -113,14 +122,9 @@
         </section>
 
         <div class="action-footer">
-          <button id="btn-generate" class="btn btn-primary btn-full">
-            <span class="icon">⚡</span> Generate Slides
-          </button>
-          <button id="btn-export-propresenter" class="btn btn-propresenter btn-full" disabled>
-            <span class="icon">📦</span> Export to ProPresenter (.probundle)
-          </button>
-          <button id="btn-export" class="btn btn-success btn-full" disabled>
-            <span class="icon">📥</span> Download 4K Transparent ZIP
+          <button id="btn-generate" class="btn-dark-action btn-generate">
+            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Generate Slides</span>
           </button>
         </div>
       </aside>
@@ -168,6 +172,18 @@
               <h3>No Slides Generated Yet</h3>
               <p>Paste your weekly request and click <strong>Generate Slides</strong> to see the preview here.</p>
             </div>
+          </div>
+
+          <!-- Floating Bottom-Right Export Dock for Grid View -->
+          <div id="grid-export-bar" class="grid-export-bar" style="display: none;">
+            <button id="btn-grid-export" class="btn-dark-action btn-export-zip" title="Export all slides as 4K transparent PNGs in a ZIP">
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>All Slides Images (zip)</span>
+            </button>
+            <button id="btn-grid-export-propresenter" class="btn-dark-action btn-propresenter-dark" title="Export presentation for ProPresenter with slide notes (.probundle)">
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span>Export for ProPresenter</span>
+            </button>
           </div>
 
           <!-- Slide Editor View (Single Slide Focus) -->
@@ -279,9 +295,20 @@
                   <span id="editor-slide-index">Slide 1 of 1</span>
                   <button id="btn-next-slide" class="btn btn-secondary">Next &rarr;</button>
                 </div>
-                <button id="btn-download-active-slide" class="btn-download-slide" title="Export this active slide as 4K transparent PNG using the standard naming convention">
-                  <span>💾 Download This Slide</span>
-                </button>
+                <div class="editor-export-actions">
+                  <button id="btn-download-active-slide" class="btn-dark-action btn-download-slide" title="Export this active slide as 4K transparent PNG">
+                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Single Slide (png)</span>
+                  </button>
+                  <button id="btn-export" class="btn-dark-action btn-export-zip" title="Export all slides as 4K transparent PNGs in a ZIP" disabled>
+                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>All Slides Images (zip)</span>
+                  </button>
+                  <button id="btn-export-propresenter" class="btn-dark-action btn-propresenter-dark" title="Export presentation for ProPresenter with slide notes (.probundle)" disabled>
+                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span>Export for ProPresenter</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -293,10 +320,10 @@
     <canvas id="export-canvas" width="3840" height="2160" style="display: none;"></canvas>
 
     <!-- Hidden Line Counting Calibration Area -->
-    <div id="line-counter-calibration" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: 500; font-size: 82px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
+    <div id="line-counter-calibration" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: normal; font-size: 75px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
       <div id="calibration-single-line" style="display: block; width: 100%;">Line</div>
     </div>
-    <div id="line-counter-measurement" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: 500; font-size: 82px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
+    <div id="line-counter-measurement" class="slide-text-body hidden-measurement-container" style="display: block; position: absolute; visibility: hidden; pointer-events: none; width: 2101.5px; font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: normal; font-size: 75px; line-height: 1.22; text-align: justify; white-space: normal; word-break: normal; overflow: hidden; height: auto;">
     </div>
   </div>
 

@@ -119,9 +119,18 @@ const contextOpacityValEl = document.getElementById('context-opacity-value');
 const btnGenerate = document.getElementById('btn-generate');
 const btnExport = document.getElementById('btn-export');
 const btnExportProPresenter = document.getElementById('btn-export-propresenter');
+const gridExportBar = document.getElementById('grid-export-bar');
+const btnGridExport = document.getElementById('btn-grid-export');
+const btnGridExportProPresenter = document.getElementById('btn-grid-export-propresenter');
 const btnDemo = document.getElementById('btn-demo');
 const btnDemoLovers = document.getElementById('btn-demo-lovers');
 const slideCountEl = document.getElementById('slide-count');
+
+// Dark Mode Friendly SVG Icon Constants
+const DOWNLOAD_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const PROPRESENTER_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+const LIGHTNING_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+const SPINNER_ICON_SVG = `<svg class="btn-icon btn-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`;
 
 const toggleGridEl = document.getElementById('toggle-grid');
 const toggleEditorEl = document.getElementById('toggle-editor');
@@ -237,9 +246,31 @@ document.fonts.ready.then(() => {
   checkLocalFontPresence();
 });
 
+function getScriptureFontSize() {
+  const scriptureFontSizeEl = document.getElementById('scripture-font-size');
+  if (scriptureFontSizeEl && scriptureFontSizeEl.value) {
+    return parseInt(scriptureFontSizeEl.value, 10);
+  }
+  const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
+  return isLovers ? 75 : 78;
+}
+
+function setScriptureFontSize(size) {
+  const scriptureFontSizeEl = document.getElementById('scripture-font-size');
+  const scriptureFontSizeValEl = document.getElementById('scripture-font-size-value');
+  if (scriptureFontSizeEl) {
+    scriptureFontSizeEl.value = size;
+  }
+  if (scriptureFontSizeValEl) {
+    scriptureFontSizeValEl.textContent = `${size}px`;
+  }
+  document.documentElement.style.setProperty('--scripture-font-size', `${size}px`);
+}
+
 function calibrateLineHeight() {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-  const defaultHeight = isLovers ? 100.04 : 123.25;
+  const fontSize = getScriptureFontSize();
+  const defaultHeight = isLovers ? (fontSize * 1.22) : (fontSize * 1.35);
   const calibrationSpan = document.getElementById('calibration-single-line');
   if (calibrationSpan) {
     const rect = calibrationSpan.getBoundingClientRect();
@@ -256,6 +287,9 @@ function updateCalibrationForTheme() {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
   const lineLimitEl = document.getElementById('line-limit');
   const lineLimitHelp = lineLimitEl ? lineLimitEl.nextElementSibling : null;
+  const targetFontSize = isLovers ? 75 : 78;
+  
+  setScriptureFontSize(targetFontSize);
   
   if (isLovers) {
     document.body.classList.add('theme-lovers-series');
@@ -263,18 +297,18 @@ function updateCalibrationForTheme() {
     if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Lover\'s Series)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2101.5px';
-      lineCounterCalibration.style.fontSize = '82px';
+      lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
       lineCounterCalibration.style.lineHeight = '1.22';
       lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
-      lineCounterCalibration.style.fontWeight = '500';
+      lineCounterCalibration.style.fontWeight = 'normal';
       lineCounterCalibration.style.webkitFontSmoothing = 'subpixel-antialiased';
     }
     if (lineCounterMeasurement) {
       lineCounterMeasurement.style.width = '2101.5px';
-      lineCounterMeasurement.style.fontSize = '82px';
+      lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
       lineCounterMeasurement.style.lineHeight = '1.22';
       lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
-      lineCounterMeasurement.style.fontWeight = '500';
+      lineCounterMeasurement.style.fontWeight = 'normal';
       lineCounterMeasurement.style.webkitFontSmoothing = 'subpixel-antialiased';
     }
   } else {
@@ -283,15 +317,15 @@ function updateCalibrationForTheme() {
     if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Porch Generic)';
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2177px';
-      lineCounterCalibration.style.fontSize = '85px';
-      lineCounterCalibration.style.lineHeight = '1.45';
+      lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
+      lineCounterCalibration.style.lineHeight = '1.35';
       lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
       lineCounterCalibration.style.fontWeight = 'normal';
     }
     if (lineCounterMeasurement) {
       lineCounterMeasurement.style.width = '2177px';
-      lineCounterMeasurement.style.fontSize = '85px';
-      lineCounterMeasurement.style.lineHeight = '1.45';
+      lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
+      lineCounterMeasurement.style.lineHeight = '1.35';
       lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
       lineCounterMeasurement.style.fontWeight = 'normal';
     }
@@ -343,6 +377,39 @@ contextOpacityEl.addEventListener('input', (e) => {
   contextOpacityValEl.textContent = `${pct}%`;
   applyContextOpacity(e.target.value);
 });
+
+const scriptureFontSizeEl = document.getElementById('scripture-font-size');
+const scriptureFontSizeValEl = document.getElementById('scripture-font-size-value');
+
+if (scriptureFontSizeEl) {
+  scriptureFontSizeEl.addEventListener('input', (e) => {
+    const newSize = parseInt(e.target.value, 10);
+    setScriptureFontSize(newSize);
+    if (lineCounterCalibration) {
+      lineCounterCalibration.style.fontSize = `${newSize}px`;
+    }
+    if (lineCounterMeasurement) {
+      lineCounterMeasurement.style.fontSize = `${newSize}px`;
+    }
+    calibrateLineHeight();
+    if (slidesData.length > 0 && activeSlideIndex >= 0) {
+      const slide = slidesData[activeSlideIndex];
+      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+      const maxLines = getMaxLines();
+      const lines = measureLines(slide.text, isPoetry);
+      activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
+      if (lines > maxLines) {
+        activeSlideLinesEl.className = 'badge danger';
+        activeSlideOverflowWarning.textContent = `⚠️ Warning: Text exceeds ${maxLines} lines! It will be cut off or scaled improperly. Reduce the text or split the slide.`;
+        activeSlideOverflowWarning.style.display = 'block';
+      } else {
+        activeSlideLinesEl.className = 'badge success';
+        activeSlideOverflowWarning.style.display = 'none';
+      }
+      renderSlideDeck();
+    }
+  });
+}
 
 function applyContextOpacity(opacityVal) {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
@@ -1029,6 +1096,9 @@ function renderSlideDeck() {
     slideCountEl.textContent = '0 slides generated';
     btnExport.disabled = true;
     if (btnExportProPresenter) btnExportProPresenter.disabled = true;
+    if (btnGridExport) btnGridExport.disabled = true;
+    if (btnGridExportProPresenter) btnGridExportProPresenter.disabled = true;
+    if (gridExportBar) gridExportBar.style.display = 'none';
     if (btnShareDraft) btnShareDraft.disabled = true;
     if (btnProofSheet) btnProofSheet.disabled = true;
     return;
@@ -1036,14 +1106,27 @@ function renderSlideDeck() {
   
   slideCountEl.textContent = `${slidesData.length} slides generated`;
   btnExport.disabled = false;
-  if (btnExportProPresenter) btnExportProPresenter.disabled = false;
+  btnExport.innerHTML = `${DOWNLOAD_ICON_SVG}<span>All Slides Images (zip)</span>`;
+  if (btnGridExport) {
+    btnGridExport.disabled = false;
+    btnGridExport.innerHTML = `${DOWNLOAD_ICON_SVG}<span>All Slides Images (zip)</span>`;
+  }
+
+  if (btnExportProPresenter) {
+    btnExportProPresenter.disabled = false;
+    btnExportProPresenter.innerHTML = `${PROPRESENTER_ICON_SVG}<span>Export for ProPresenter</span>`;
+  }
+  if (btnGridExportProPresenter) {
+    btnGridExportProPresenter.disabled = false;
+    btnGridExportProPresenter.innerHTML = `${PROPRESENTER_ICON_SVG}<span>Export for ProPresenter</span>`;
+  }
+
+  if (gridExportBar && currentView === 'grid') {
+    gridExportBar.style.display = 'flex';
+  }
+
   if (btnShareDraft) btnShareDraft.disabled = false;
   if (btnProofSheet) btnProofSheet.disabled = false;
-  if (slidesData.length === 1) {
-    btnExport.innerHTML = `<span class="icon">📥</span> Download 4K Transparent PNG`;
-  } else {
-    btnExport.innerHTML = `<span class="icon">📥</span> Download 4K Transparent ZIP`;
-  }
   
   // Responsive scale of visual thumbnails to match 16:9 card aspect ratio.
   // The layout draws at 4K (3840x2160), and CSS scales it dynamically via --grid-scale.
@@ -1726,6 +1809,9 @@ function switchView(view) {
     toggleEditorEl.classList.remove('active');
     gridViewEl.style.display = 'grid';
     editorViewEl.style.display = 'none';
+    if (gridExportBar) {
+      gridExportBar.style.display = slidesData.length > 0 ? 'flex' : 'none';
+    }
     renderSlideDeck(); // refresh grid to show active status
     requestAnimationFrame(updateGridScale);
   } else {
@@ -1733,6 +1819,9 @@ function switchView(view) {
     toggleEditorEl.classList.add('active');
     gridViewEl.style.display = 'none';
     editorViewEl.style.display = 'flex';
+    if (gridExportBar) {
+      gridExportBar.style.display = 'none';
+    }
     scaleEditorCanvas();
     renderActiveSlide();
   }
@@ -2173,6 +2262,11 @@ async function downloadActiveSlide() {
   const progressPercentage = document.getElementById('progress-percentage');
   const exportCanvas = document.getElementById('export-canvas');
 
+  if (btnDownloadActiveSlide) {
+    btnDownloadActiveSlide.disabled = true;
+    btnDownloadActiveSlide.innerHTML = `${SPINNER_ICON_SVG}<span>Rendering PNG...</span>`;
+  }
+
   progressModal.style.display = 'flex';
   progressStatus.textContent = `Rendering slide ${activeSlideIndex + 1}...`;
   progressBarFill.style.width = '50%';
@@ -2199,6 +2293,10 @@ async function downloadActiveSlide() {
     alert(`Failed to export slide: ${error.message || error}`);
   } finally {
     progressModal.style.display = 'none';
+    if (btnDownloadActiveSlide) {
+      btnDownloadActiveSlide.disabled = false;
+      btnDownloadActiveSlide.innerHTML = `${DOWNLOAD_ICON_SVG}<span>Single Slide (png)</span>`;
+    }
   }
 }
 
@@ -2215,6 +2313,19 @@ if (btnToggleEmphasis) {
 if (btnDownloadActiveSlide) {
   btnDownloadActiveSlide.addEventListener('click', () => {
     downloadActiveSlide();
+  });
+}
+
+// Grid View direct triggers to keep export functionality aligned
+if (btnGridExport) {
+  btnGridExport.addEventListener('click', () => {
+    btnExport.click();
+  });
+}
+
+if (btnGridExportProPresenter) {
+  btnGridExportProPresenter.addEventListener('click', () => {
+    btnExportProPresenter.click();
   });
 }
 
@@ -2263,7 +2374,7 @@ btnGenerate.addEventListener('click', async () => {
   if (!rawText) return;
   
   btnGenerate.disabled = true;
-  btnGenerate.innerHTML = `<span class="icon">⌛</span> Fetching Scripture...`;
+  btnGenerate.innerHTML = `${SPINNER_ICON_SVG}<span>Fetching Scripture...</span>`;
   
   try {
     const parsed = parseRawInput(rawText);
@@ -2278,7 +2389,7 @@ btnGenerate.addEventListener('click', async () => {
     alert("Error occurred while generating slides. See developer console.");
   } finally {
     btnGenerate.disabled = false;
-    btnGenerate.innerHTML = `<span class="icon">⚡</span> Generate Slides`;
+    btnGenerate.innerHTML = `${LIGHTNING_ICON_SVG}<span>Generate Slides</span>`;
   }
 });
 
@@ -2387,6 +2498,7 @@ async function renderSlideToCanvas(slide, canvas) {
   if (slide.type === 'scripture') {
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
     const textAlign = isPoetry ? 'left' : 'justify';
+    const fontSize = getScriptureFontSize();
     if (isLovers) {
       slideDiv.innerHTML = `
         <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
@@ -2395,7 +2507,7 @@ async function renderSlideToCanvas(slide, canvas) {
         </div>
         <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
         <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 546.4px; width: 2101.5px; height: 906.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: 500; font-size: 82px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
+          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
         </div>
       `;
     } else {
@@ -2406,7 +2518,7 @@ async function renderSlideToCanvas(slide, canvas) {
         </div>
         <div class="slide-divider" style="position: absolute; left: 1363px; top: 680px; width: 3px; height: 800px; background-color: #ffffff;"></div>
         <div class="slide-right-column" style="position: absolute; left: 1463px; top: 480px; width: 2177px; height: 1200px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: 85px; line-height: 1.45; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
+          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.35; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
         </div>
       `;
     }
@@ -2441,7 +2553,11 @@ async function renderSlideToCanvas(slide, canvas) {
       font-variant-numeric: slashed-zero !important;
       font-feature-settings: "zero" 1, "ss03" 1 !important;
     }
-    .slide-text-body span.highlight,
+    .slide-text-body span.highlight {
+      color: ${textColor} !important;
+      opacity: 1.0 !important;
+      font-weight: normal !important;
+    }
     .slide-center-title span.highlight,
     .slide-quote-text span.highlight {
       color: ${textColor} !important;
@@ -2506,10 +2622,10 @@ btnExport.addEventListener('click', async () => {
   const progressPercentage = document.getElementById('progress-percentage');
   
   btnExport.disabled = true;
-  if (slidesData.length === 1) {
-    btnExport.innerHTML = `<span class="icon">⌛</span> Rendering PNG...`;
-  } else {
-    btnExport.innerHTML = `<span class="icon">⌛</span> Rendering ZIP...`;
+  btnExport.innerHTML = `${SPINNER_ICON_SVG}<span>Rendering ZIP...</span>`;
+  if (btnGridExport) {
+    btnGridExport.disabled = true;
+    btnGridExport.innerHTML = `${SPINNER_ICON_SVG}<span>Rendering ZIP...</span>`;
   }
   
   // Open progress modal
@@ -2602,10 +2718,10 @@ btnExport.addEventListener('click', async () => {
   } finally {
     progressModal.style.display = 'none';
     btnExport.disabled = false;
-    if (slidesData.length === 1) {
-      btnExport.innerHTML = `<span class="icon">📥</span> Download 4K Transparent PNG`;
-    } else {
-      btnExport.innerHTML = `<span class="icon">📥</span> Download 4K Transparent ZIP`;
+    btnExport.innerHTML = `${DOWNLOAD_ICON_SVG}<span>All Slides Images (zip)</span>`;
+    if (btnGridExport) {
+      btnGridExport.disabled = false;
+      btnGridExport.innerHTML = `${DOWNLOAD_ICON_SVG}<span>All Slides Images (zip)</span>`;
     }
   }
 });
@@ -2617,7 +2733,11 @@ if (btnExportProPresenter) {
 
     btnExportProPresenter.disabled = true;
     btnExport.disabled = true;
-    btnExportProPresenter.innerHTML = `<span class="icon">⌛</span> Exporting ProPresenter...`;
+    btnExportProPresenter.innerHTML = `${SPINNER_ICON_SVG}<span>Exporting ProPresenter...</span>`;
+    if (btnGridExportProPresenter) {
+      btnGridExportProPresenter.disabled = true;
+      btnGridExportProPresenter.innerHTML = `${SPINNER_ICON_SVG}<span>Exporting ProPresenter...</span>`;
+    }
 
     const canvas = document.getElementById('export-canvas');
     const progressModal = document.getElementById('progress-modal');
@@ -2663,7 +2783,11 @@ if (btnExportProPresenter) {
       progressModal.style.display = 'none';
       btnExportProPresenter.disabled = false;
       btnExport.disabled = false;
-      btnExportProPresenter.innerHTML = `<span class="icon">📦</span> Export to ProPresenter (.probundle)`;
+      btnExportProPresenter.innerHTML = `${PROPRESENTER_ICON_SVG}<span>Export for ProPresenter</span>`;
+      if (btnGridExportProPresenter) {
+        btnGridExportProPresenter.disabled = false;
+        btnGridExportProPresenter.innerHTML = `${PROPRESENTER_ICON_SVG}<span>Export for ProPresenter</span>`;
+      }
     }
   });
 }

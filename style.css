@@ -325,6 +325,108 @@ input[type="range"] {
   transform: scale(0.98);
 }
 
+/* Refined Dark Mode Action Buttons */
+.btn-dark-action {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  background-color: rgba(99, 102, 241, 0.15);
+  border: 1px solid var(--accent-color);
+  color: #c7d2fe;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  font-family: inherit;
+  text-decoration: none;
+  outline: none;
+}
+
+.btn-dark-action:hover:not(:disabled) {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+.btn-dark-action:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-dark-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none !important;
+}
+
+.btn-dark-action .btn-icon {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.btn-dark-action.btn-generate {
+  padding: 12px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.btn-dark-action.btn-propresenter-dark {
+  background-color: rgba(139, 92, 246, 0.15);
+  border-color: #8b5cf6;
+  color: #ddd6fe;
+}
+
+.btn-dark-action.btn-propresenter-dark:hover:not(:disabled) {
+  background-color: #8b5cf6;
+  border-color: #8b5cf6;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+}
+
+.editor-export-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.grid-export-bar {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: rgba(15, 15, 17, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.grid-export-bar .btn-dark-action {
+  width: auto;
+  white-space: nowrap;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-spinner {
+  animation: btn-spin 1s linear infinite;
+}
+
 /* Right preview workspace */
 .preview-panel {
   flex: 1;
@@ -685,8 +787,8 @@ input[type="range"] {
 
 .slide-text-body {
   font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif;
-  font-size: 85px;
-  line-height: 1.45;
+  font-size: var(--scripture-font-size, 78px);
+  line-height: 1.35;
   text-align: justify;
   color: rgba(255, 255, 255, 0.25); /* Muted by default */
   outline: none;
@@ -900,8 +1002,8 @@ sup,
 
 .theme-lovers-series .slide-text-body {
   font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif;
-  font-weight: 500;
-  font-size: 82px;
+  font-weight: normal;
+  font-size: var(--scripture-font-size, 75px);
   line-height: 1.22;
   text-align: justify;
   color: rgba(0, 0, 0, 0.25);
@@ -911,7 +1013,7 @@ sup,
 .theme-lovers-series .slide-text-body span.highlight {
   color: #000000;
   opacity: 1.0;
-  font-weight: 500;
+  font-weight: normal;
 }
 
 /* Lover's Series: Sermon Point - vertically centered where scripture is */
@@ -1120,31 +1222,7 @@ textarea#active-slide-textarea:focus {
 }
 
 .btn-download-slide {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  padding: 10px 14px;
-  margin-top: 12px;
-  background-color: rgba(99, 102, 241, 0.15);
-  border: 1px solid var(--accent-color);
-  color: #c7d2fe;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-download-slide:hover {
-  background-color: var(--accent-color);
-  color: white;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.btn-download-slide:active {
-  transform: scale(0.98);
+  margin-top: 0;
 }
 
 /* Custom Scrollbar */
