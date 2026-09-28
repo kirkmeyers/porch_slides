@@ -726,29 +726,49 @@ function measureLines(htmlContent, isPoetry = false) {
   return Math.max(1, Math.round(effectiveHeight / singleLineHeight));
 }
 
-// Compilation helper for Bible Passage HTML with a specific block range
-function compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry = false) {
+// Compilation helper for building passage HTML from whole verses and an optional trailing partial verse
+function buildPassageHtml(wholeVerses, targetVerse, partialVerseObj = null, isPoetry = false) {
   let html = '';
-  for (let v = start; v <= end; v++) {
-    const vObj = chapterData.find(x => x.verse === v);
-    if (!vObj) continue;
-    
-    let cleanText = vObj.text.trim();
+  for (const v of wholeVerses) {
+    let cleanText = v.text;
     if (isPoetry) {
       cleanText = formatPoeticVerse(cleanText);
     }
-    const isTarget = v === targetVerse;
-    const verseContent = isTarget
-      ? `<span class="highlight"><sup>${v}</sup>${cleanText}</span>`
-      : `<span><sup>${v}</sup>${cleanText}</span>`;
+    const isTarget = v.verse === targetVerse;
+    const content = isTarget
+      ? `<span class="highlight"><sup>${v.verse}</sup>${cleanText}</span>`
+      : `<span><sup>${v.verse}</sup>${cleanText}</span>`;
 
     if (isPoetry) {
-      html += `${verseContent}<br />`;
+      html += `${content}<br />`;
     } else {
-      html += `${verseContent} `;
+      html += `${content} `;
     }
   }
+
+  if (partialVerseObj) {
+    let cleanText = partialVerseObj.text;
+    const content = `<span><sup>${partialVerseObj.verse}</sup>${cleanText}</span>`;
+    if (isPoetry) {
+      html += `${content}<br />`;
+    } else {
+      html += `${content}`;
+    }
+  }
+
   return html.trim().replace(/(<br\s*\/?>)+$/gi, '');
+}
+
+// Compilation helper for Bible Passage HTML with a specific block range
+function compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry = false) {
+  const wholeVerses = [];
+  for (let v = start; v <= end; v++) {
+    const vObj = chapterData.find(x => x.verse === v);
+    if (vObj) {
+      wholeVerses.push({ verse: v, text: vObj.text.trim() });
+    }
+  }
+  return buildPassageHtml(wholeVerses, targetVerse, null, isPoetry);
 }
 
 // Compilation helper for Bible Passage HTML
@@ -756,6 +776,116 @@ function compilePassageHtml(chapterData, targetVerse, contextSize, isPoetry = fa
   const start = Math.max(1, targetVerse - contextSize);
   const end = Math.min(chapterData.length, targetVerse + contextSize);
   return compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry);
+}
+
+// Fill block to target lines (default 9 lines) starting on startVerse (always a whole verse)
+// Partial verses are strictly at the end of the text block
+function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = false, targetLines = 9) {
+  const startObj = chapterData.find(v => v.verse === startVerse);
+  if (!startObj) return null;
+
+  // Step 1: Collect whole verses starting from startVerse as long as line count <= targetLines
+  const wholeVerses = [];
+  let currentEndVerse = startVerse;
+
+  for (let v = startVerse; v <= chapterData.length; v++) {
+    const vObj = chapterData.find(x => x.verse === v);
+    if (!vObj) break;
+
+    const candidateWholeVerses = [...wholeVerses, { verse: v, text: vObj.text.trim() }];
+    const testHtml = preventOrphans(buildPassageHtml(candidateWholeVerses, targetVerse, null, isPoetry));
+    const measuredLines = measureLines(testHtml, isPoetry);
+
+    if (measuredLines <= targetLines) {
+      wholeVerses.push({ verse: v, text: vObj.text.trim() });
+      currentEndVerse = v;
+      if (measuredLines === targetLines) {
+        break;
+      }
+    } else {
+      // Adding full verse v caused overflow beyond targetLines
+      break;
+    }
+  }
+
+  // Step 2: Check current line count with whole verses
+  const baseHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, isPoetry));
+  let currentLines = measureLines(baseHtml, isPoetry);
+
+  // Step 3: If currentLines < targetLines, slice words from next verse to fill out line 9
+  // Partial verses are strictly at the end of the block and cannot be the target verse itself
+  let partialVerseObj = null;
+  const nextVerseNum = currentEndVerse + 1;
+  const nextVerseObj = chapterData.find(x => x.verse === nextVerseNum);
+
+  if (currentLines < targetLines && nextVerseObj && nextVerseNum !== targetVerse) {
+    if (isPoetry) {
+      const formatted = formatPoeticVerse(nextVerseObj.text.trim());
+      const couplets = formatted.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
+      let bestCoupletText = '';
+
+      for (let c = 0; c < couplets.length; c++) {
+        const testCoupletPart = couplets.slice(0, c + 1).join('<br />');
+        const testCandidate = { verse: nextVerseNum, text: testCoupletPart, isPartial: true };
+        const testHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, testCandidate, isPoetry));
+        const lines = measureLines(testHtml, isPoetry);
+
+        if (lines <= targetLines) {
+          bestCoupletText = testCoupletPart;
+          currentLines = lines;
+        } else {
+          break;
+        }
+      }
+
+      if (bestCoupletText) {
+        partialVerseObj = { verse: nextVerseNum, text: bestCoupletText, isPartial: true };
+      }
+    } else {
+      // Prose: binary search words to fill line 9 completely
+      const cleanNextText = nextVerseObj.text.trim();
+      const words = cleanNextText.split(/\s+/).filter(Boolean);
+
+      let low = 1;
+      let high = words.length;
+      let bestWordCount = 0;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const testWordPart = words.slice(0, mid).join(' ');
+        const testCandidate = { verse: nextVerseNum, text: testWordPart, isPartial: true };
+        const testHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, testCandidate, isPoetry));
+        const lines = measureLines(testHtml, isPoetry);
+
+        if (lines <= targetLines) {
+          bestWordCount = mid;
+          currentLines = lines;
+          low = mid + 1; // Try taking more words if they still fit in targetLines
+        } else {
+          high = mid - 1; // Exceeded targetLines
+        }
+      }
+
+      if (bestWordCount > 0) {
+        const partialText = words.slice(0, bestWordCount).join(' ');
+        partialVerseObj = { verse: nextVerseNum, text: partialText, isPartial: true };
+      }
+    }
+  }
+
+  const finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, isPoetry));
+  const finalLines = measureLines(finalHtml, isPoetry);
+
+  return {
+    html: finalHtml,
+    lines: finalLines,
+    startVerse: startVerse,
+    endVerse: partialVerseObj ? nextVerseNum : currentEndVerse,
+    wholeVerses: wholeVerses,
+    partialVerseObj: partialVerseObj,
+    fullVerses: wholeVerses.map(v => v.verse),
+    hasPartialEnd: !!partialVerseObj
+  };
 }
 
 // Split verse if single verse exceeds line limit
@@ -771,13 +901,11 @@ function splitLongVerse(verseNumber, verseText, maxLines, isPoetry = false) {
     const lineCount = measureLines(testHtml, isPoetry);
     
     if (lineCount > maxLines) {
-      // The current word caused an overflow. 
-      // Remove it, create a slide with the words that fit, and start a new chunk.
       currentWords.pop();
       if (currentWords.length > 0) {
         slides.push(currentWords.join(' '));
       }
-      currentWords = [words[i]]; // Start new chunk with the overflow word
+      currentWords = [words[i]];
     }
   }
   
@@ -788,83 +916,21 @@ function splitLongVerse(verseNumber, verseText, maxLines, isPoetry = false) {
   return slides;
 }
 
-function getCandidateContextPairs(maxBefore, maxAfter, isSequence, isLastInSequence) {
-  const candidates = [];
-  for (let b = 0; b <= maxBefore; b++) {
-    for (let a = 0; a <= maxAfter; a++) {
-      candidates.push({ before: b, after: a, totalContext: b + a });
-    }
-  }
-
-  candidates.sort((c1, c2) => {
-    // 1. Maximize total context
-    if (c2.totalContext !== c1.totalContext) {
-      return c2.totalContext - c1.totalContext;
-    }
-
-    // 2. Tie-breakers
-    if (isSequence) {
-      if (!isLastInSequence) {
-        // More verses follow: prefer having context after (a >= 1)
-        const c1HasAfter = c1.after >= 1 ? 1 : 0;
-        const c2HasAfter = c2.after >= 1 ? 1 : 0;
-        if (c2HasAfter !== c1HasAfter) return c2HasAfter - c1HasAfter;
-
-        const bal1 = Math.abs(c1.before - c1.after);
-        const bal2 = Math.abs(c2.before - c2.after);
-        if (bal1 !== bal2) return bal1 - bal2;
-
-        return c2.after - c1.after;
-      } else {
-        // Last verse in sequence: prefer having context before (b >= 1)
-        const c1HasBefore = c1.before >= 1 ? 1 : 0;
-        const c2HasBefore = c2.before >= 1 ? 1 : 0;
-        if (c2HasBefore !== c1HasBefore) return c2HasBefore - c1HasBefore;
-
-        const bal1 = Math.abs(c1.before - c1.after);
-        const bal2 = Math.abs(c2.before - c2.after);
-        if (bal1 !== bal2) return bal1 - bal2;
-
-        return c2.before - c1.before;
+function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLines, isPoetry = false) {
+  let bestStart = targetVerse;
+  if (requestedContext > 0) {
+    for (let b = requestedContext; b >= 1; b--) {
+      const candStart = targetVerse - b;
+      if (candStart >= 1) {
+        const testBlock = fillBlockToExactLines(chapterData, targetVerse, candStart, isPoetry, maxLines);
+        if (testBlock && testBlock.fullVerses.includes(targetVerse)) {
+          bestStart = candStart;
+          return testBlock;
+        }
       }
-    } else {
-      // Single verse: prefer balanced (1, 1) over (0, 2) or (2, 0)
-      const bal1 = Math.abs(c1.before - c1.after);
-      const bal2 = Math.abs(c2.before - c2.after);
-      if (bal1 !== bal2) return bal1 - bal2;
-      return c2.after - c1.after;
-    }
-  });
-
-  return candidates;
-}
-
-function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLines, isPoetry = false, isSequence = false, isLastInSequence = false) {
-  if (requestedContext <= 0) {
-    const singleHtml = compilePassageHtmlForBlock(chapterData, targetVerse, targetVerse, targetVerse, isPoetry);
-    if (measureLines(singleHtml, isPoetry) <= maxLines) {
-      return { start: targetVerse, end: targetVerse, html: singleHtml };
-    }
-    return null;
-  }
-
-  const totalVerses = chapterData.length;
-  const maxBefore = Math.min(requestedContext, targetVerse - 1);
-  const maxAfter = Math.min(requestedContext, totalVerses - targetVerse);
-
-  const candidates = getCandidateContextPairs(maxBefore, maxAfter, isSequence, isLastInSequence);
-
-  for (const cand of candidates) {
-    const start = targetVerse - cand.before;
-    const end = targetVerse + cand.after;
-    const passageHtml = compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry);
-    const lines = measureLines(passageHtml, isPoetry);
-    if (lines <= maxLines) {
-      return { start, end, html: passageHtml, lines };
     }
   }
-
-  return null; // Even single target verse exceeds maxLines
+  return fillBlockToExactLines(chapterData, targetVerse, bestStart, isPoetry, maxLines);
 }
 
 // Helper to coalesce contiguous scripture requests targeting same book & chapter
@@ -959,119 +1025,147 @@ async function buildSlides(parsedRequests) {
       const slideFormat = isPoetry ? 'poetry' : 'prose';
       const requestedContext = parseInt(contextWindowEl.value) || 0;
 
-      // Stationary Sequence Chunker:
-      // Partition contiguous target verses into stationary blocks so that all slides
-      // in the same block share identical text and line wraps (only the highlight moves).
+      // Stationary Sequence Generator:
+      // Fills each slide's scripture block to exactly 9 lines (target text is 9 lines long).
+      // Partial verses are strictly at the end of the text block.
+      // Consecutive slides share the exact same stationary block when possible.
+      let currentBlock = null;
       let vIdx = 0;
+
       while (vIdx < verses.length) {
-        const firstTarget = verses[vIdx];
-        const firstTargetObj = chapterData.find(v => v.verse === firstTarget);
-        if (!firstTargetObj) {
+        const targetVerse = verses[vIdx];
+        const targetVerseObj = chapterData.find(v => v.verse === targetVerse);
+        if (!targetVerseObj) {
           vIdx++;
           continue;
         }
 
         // Test if single target verse itself exceeds max lines
-        const formattedSingle = isPoetry ? formatPoeticVerse(firstTargetObj.text.trim()) : firstTargetObj.text.trim();
-        const singleHtml = compilePassageHtmlForBlock(chapterData, firstTarget, firstTarget, firstTarget, isPoetry);
-        if (measureLines(singleHtml, isPoetry) > maxLines) {
+        const formattedSingle = isPoetry ? formatPoeticVerse(targetVerseObj.text.trim()) : targetVerseObj.text.trim();
+        const singleTestHtml = `<span class="highlight"><sup>${targetVerse}</sup>${formattedSingle}</span>`;
+        if (measureLines(singleTestHtml, isPoetry) > maxLines) {
           // Split oversized single verse across slides
-          const parts = splitLongVerse(firstTarget, formattedSingle, maxLines, isPoetry);
+          const parts = splitLongVerse(targetVerse, formattedSingle, maxLines, isPoetry);
           for (let p = 0; p < parts.length; p++) {
-            const partHtml = `<span class="highlight"><sup>${firstTarget}</sup>${parts[p]}</span>`;
+            const partHtml = `<span class="highlight"><sup>${targetVerse}</sup>${parts[p]}</span>`;
             slides.push({
               type: 'scripture',
               text: preventOrphans(partHtml),
               refBook: bookName.toUpperCase(),
-              refVerse: `${chapter}:${firstTarget}`,
+              refVerse: `${chapter}:${targetVerse}`,
               rawText: partHtml,
               bookId: bookId,
               bookName: bookName,
               chapter: chapter,
-              targetVerse: firstTarget,
+              targetVerse: targetVerse,
               translation: targetTranslation,
               format: slideFormat,
               isPoetry: isPoetry
             });
           }
+          currentBlock = null;
           vIdx++;
           continue;
         }
 
-        // 1. Greedily find how many consecutive target verses fit together in this stationary block
-        let maxTargetEndIdx = vIdx;
-        while (maxTargetEndIdx + 1 < verses.length) {
-          const testStart = firstTarget;
-          const testEnd = verses[maxTargetEndIdx + 1];
-          const testHtml = compilePassageHtmlForBlock(chapterData, firstTarget, testStart, testEnd, isPoetry);
-          if (measureLines(testHtml, isPoetry) <= maxLines) {
-            maxTargetEndIdx++;
+        // Check if current stationary block can be reused
+        let canReuseBlock = false;
+        if (currentBlock && currentBlock.fullVerses.includes(targetVerse)) {
+          const vLastFull = currentBlock.fullVerses[currentBlock.fullVerses.length - 1];
+          const hasMoreTargets = (vIdx + 1 < verses.length);
+
+          if (targetVerse < vLastFull) {
+            // Target verse is strictly before the last full verse -> safe to reuse
+            canReuseBlock = true;
+          } else if (targetVerse === vLastFull) {
+            // Target verse is the last full verse in this block
+            // If more target verses follow, we should start a new block so following verses have context
+            // If it's the last target verse in sequence, check if block had many verses (>= 4)
+            if (!hasMoreTargets && currentBlock.fullVerses.length < 4) {
+              canReuseBlock = true;
+            } else {
+              canReuseBlock = false;
+            }
+          }
+        }
+
+        if (!canReuseBlock) {
+          // Determine best start verse for new block
+          let bestStart = targetVerse;
+
+          if (vIdx === 0) {
+            // First slide of the sequence/item
+            if (verses.length > 1) {
+              // Multi-verse passage: start at the first requested verse
+              bestStart = verses[0];
+            } else {
+              // Single-verse request (e.g. Rom 8:18):
+              if (requestedContext > 0) {
+                // Try upper context if it fits
+                for (let b = requestedContext; b >= 1; b--) {
+                  const candidateStart = targetVerse - b;
+                  if (candidateStart >= 1) {
+                    const testBlock = fillBlockToExactLines(chapterData, targetVerse, candidateStart, isPoetry, maxLines);
+                    if (testBlock && testBlock.fullVerses.includes(targetVerse)) {
+                      bestStart = candidateStart;
+                      break;
+                    }
+                  }
+                }
+              } else {
+                bestStart = targetVerse;
+              }
+            }
           } else {
-            break;
-          }
-        }
-
-        const chunkTargetVerses = verses.slice(vIdx, maxTargetEndIdx + 1);
-        const coreStart = firstTarget;
-        const coreEnd = verses[maxTargetEndIdx];
-
-        // 2. Expand context before / after up to requestedContext (if room allows up to maxLines)
-        let finalBlockStart = coreStart;
-        let finalBlockEnd = coreEnd;
-
-        if (requestedContext > 0) {
-          const totalVerses = chapterData.length;
-          const maxBefore = Math.min(requestedContext, coreStart - 1);
-          const maxAfter = Math.min(requestedContext, totalVerses - coreEnd);
-
-          const candidates = [];
-          for (let b = maxBefore; b >= 0; b--) {
-            for (let a = maxAfter; a >= 0; a--) {
-              candidates.push({ before: b, after: a, total: b + a });
+            // Subsequent block in a multi-verse sequence:
+            // Prefer 2 verses of upper context if possible, then 1, else targetVerse
+            let foundStart = false;
+            for (let b = 2; b >= 1; b--) {
+              const candidateStart = targetVerse - b;
+              if (candidateStart >= verses[0]) {
+                const testBlock = fillBlockToExactLines(chapterData, targetVerse, candidateStart, isPoetry, maxLines);
+                if (testBlock && testBlock.fullVerses.includes(targetVerse)) {
+                  bestStart = candidateStart;
+                  foundStart = true;
+                  break;
+                }
+              }
+            }
+            if (!foundStart) {
+              bestStart = targetVerse;
             }
           }
-          // Sort candidates: highest total context first, then prefer context after if following verses exist
-          candidates.sort((c1, c2) => {
-            if (c2.total !== c1.total) return c2.total - c1.total;
-            return c2.after - c1.after;
-          });
 
-          for (const cand of candidates) {
-            const candStart = coreStart - cand.before;
-            const candEnd = coreEnd + cand.after;
-            const testHtml = compilePassageHtmlForBlock(chapterData, firstTarget, candStart, candEnd, isPoetry);
-            if (measureLines(testHtml, isPoetry) <= maxLines) {
-              finalBlockStart = candStart;
-              finalBlockEnd = candEnd;
-              break;
-            }
+          // Build the new stationary block
+          currentBlock = fillBlockToExactLines(chapterData, targetVerse, bestStart, isPoetry, maxLines);
+          if (!currentBlock || !currentBlock.fullVerses.includes(targetVerse)) {
+            // Fallback: start at targetVerse
+            currentBlock = fillBlockToExactLines(chapterData, targetVerse, targetVerse, isPoetry, maxLines);
           }
         }
 
-        // 3. Generate a slide for each target verse in the chunk using the exact same stationary passage block
-        for (let t = 0; t < chunkTargetVerses.length; t++) {
-          const targetVerse = chunkTargetVerses[t];
-          const slideTextHtml = compilePassageHtmlForBlock(chapterData, targetVerse, finalBlockStart, finalBlockEnd, isPoetry);
-          slides.push({
-            type: 'scripture',
-            text: preventOrphans(slideTextHtml),
-            refBook: bookName.toUpperCase(),
-            refVerse: `${chapter}:${targetVerse}`,
-            rawText: slideTextHtml,
-            bookId: bookId,
-            bookName: bookName,
-            chapter: chapter,
-            targetVerse: targetVerse,
-            translation: targetTranslation,
-            blockStart: finalBlockStart,
-            blockEnd: finalBlockEnd,
-            format: slideFormat,
-            isPoetry: isPoetry
-          });
-        }
+        // Generate slide using currentBlock with highlight on targetVerse
+        const slideTextHtml = buildPassageHtml(currentBlock.wholeVerses, targetVerse, currentBlock.partialVerseObj, isPoetry);
+        const finalSlideText = preventOrphans(slideTextHtml);
 
-        // Advance to next target verse beyond this chunk
-        vIdx = maxTargetEndIdx + 1;
+        slides.push({
+          type: 'scripture',
+          text: finalSlideText,
+          refBook: bookName.toUpperCase(),
+          refVerse: `${chapter}:${targetVerse}`,
+          rawText: finalSlideText,
+          bookId: bookId,
+          bookName: bookName,
+          chapter: chapter,
+          targetVerse: targetVerse,
+          translation: targetTranslation,
+          blockStart: currentBlock.startVerse,
+          blockEnd: currentBlock.endVerse,
+          format: slideFormat,
+          isPoetry: isPoetry
+        });
+
+        vIdx++;
       }
     }
   }
@@ -1989,12 +2083,16 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
 
       if (best) {
         slide.text = preventOrphans(best.html);
+        slide.blockStart = best.startVerse;
+        slide.blockEnd = best.endVerse;
       } else {
         // Fallback to target verse only
         const targetObj = chapterData.find(v => v.verse === slide.targetVerse);
         const singleText = targetObj ? (isPoetry ? formatPoeticVerse(targetObj.text.trim()) : targetObj.text.trim()) : '';
         const fallbackHtml = `<span class="highlight"><sup>${slide.targetVerse}</sup>${singleText}</span>`;
         slide.text = preventOrphans(fallbackHtml);
+        slide.blockStart = slide.targetVerse;
+        slide.blockEnd = slide.targetVerse;
       }
       
       // Update UI
