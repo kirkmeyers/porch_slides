@@ -2746,10 +2746,20 @@ if (btnExportProPresenter) {
     progressModal.style.display = 'flex';
 
     try {
-      const rawDate = document.getElementById('sermon-date').value || new Date().toISOString().split('T')[0];
-      const dateStr = rawDate.replace(/-/g, '');
-      const activeTheme = THEMES[selectedThemeKey];
-      const themeTitle = activeTheme.title;
+      const sermonDateInput = document.getElementById('sermon-date');
+      let dateStr;
+      if (sermonDateInput && sermonDateInput.value) {
+        dateStr = sermonDateInput.value.replace(/-/g, '');
+      } else {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        dateStr = `${year}${month}${day}`;
+      }
+
+      const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
+      const themeTitle = isLovers ? 'Lovers' : 'Porch';
       const presentationName = `${dateStr} - ${themeTitle}`;
 
       const bundleBlob = await exportProPresenterBundle({
