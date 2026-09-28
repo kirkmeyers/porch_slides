@@ -722,9 +722,9 @@ input[type="range"] {
 .slide-left-column {
   position: absolute;
   left: 0;
-  top: 480px;
+  top: 662px;
   width: 1363px;
-  height: 1200px;
+  height: 836px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -775,9 +775,9 @@ input[type="range"] {
 .slide-right-column {
   position: absolute;
   left: 1463px;
-  top: 480px;
+  top: 662px;
   width: 2177px;
-  height: 1200px;
+  height: 836px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -787,8 +787,8 @@ input[type="range"] {
 
 .slide-text-body {
   font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif;
-  font-size: var(--scripture-font-size, 78px);
-  line-height: 1.35;
+  font-size: var(--scripture-font-size, 75px);
+  line-height: 1.22;
   text-align: justify;
   color: rgba(255, 255, 255, 0.25); /* Muted by default */
   outline: none;
@@ -824,9 +824,9 @@ sup,
 .slide-center-title {
   position: absolute;
   left: 200px;
-  top: 480px;
+  top: 662px;
   width: 3440px;
-  height: 1200px;
+  height: 836px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -851,9 +851,9 @@ sup,
 .slide-quote-container {
   position: absolute;
   left: 200px;
-  top: 480px;
+  top: 662px;
   width: 3440px;
-  height: 1200px;
+  height: 836px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -991,9 +991,9 @@ sup,
 /* Lover's Series: Right Scripture Text Column */
 .theme-lovers-series .slide-right-column {
   left: 1613.8px;
-  top: 546.4px;
+  top: 574.4px;
   width: 2101.5px;
-  height: 906.3px;
+  height: 850.3px;
   padding-right: 0;
   display: flex;
   flex-direction: column;
@@ -1019,9 +1019,9 @@ sup,
 /* Lover's Series: Sermon Point - vertically centered where scripture is */
 .theme-lovers-series .slide-center-title {
   left: 200px;
-  top: 546.4px;
+  top: 574.4px;
   width: 3440px;
-  height: 906.3px;
+  height: 850.3px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1038,9 +1038,9 @@ sup,
 /* Lover's Series: Quote Slide - vertically centered where scripture is */
 .theme-lovers-series .slide-quote-container {
   left: 200px;
-  top: 546.4px;
+  top: 574.4px;
   width: 3440px;
-  height: 906.3px;
+  height: 850.3px;
   display: flex;
   flex-direction: column;
   justify-content: center;

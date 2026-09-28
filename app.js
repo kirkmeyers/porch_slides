@@ -251,8 +251,7 @@ function getScriptureFontSize() {
   if (scriptureFontSizeEl && scriptureFontSizeEl.value) {
     return parseInt(scriptureFontSizeEl.value, 10);
   }
-  const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-  return isLovers ? 75 : 78;
+  return 75;
 }
 
 function setScriptureFontSize(size) {
@@ -270,7 +269,7 @@ function setScriptureFontSize(size) {
 function calibrateLineHeight() {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
   const fontSize = getScriptureFontSize();
-  const defaultHeight = isLovers ? (fontSize * 1.22) : (fontSize * 1.35);
+  const defaultHeight = fontSize * 1.22;
   const calibrationSpan = document.getElementById('calibration-single-line');
   if (calibrationSpan) {
     const rect = calibrationSpan.getBoundingClientRect();
@@ -287,7 +286,7 @@ function updateCalibrationForTheme() {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
   const lineLimitEl = document.getElementById('line-limit');
   const lineLimitHelp = lineLimitEl ? lineLimitEl.nextElementSibling : null;
-  const targetFontSize = isLovers ? 75 : 78;
+  const targetFontSize = 75;
   
   setScriptureFontSize(targetFontSize);
   
@@ -318,14 +317,14 @@ function updateCalibrationForTheme() {
     if (lineCounterCalibration) {
       lineCounterCalibration.style.width = '2177px';
       lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
-      lineCounterCalibration.style.lineHeight = '1.35';
+      lineCounterCalibration.style.lineHeight = '1.22';
       lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
       lineCounterCalibration.style.fontWeight = 'normal';
     }
     if (lineCounterMeasurement) {
       lineCounterMeasurement.style.width = '2177px';
       lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
-      lineCounterMeasurement.style.lineHeight = '1.35';
+      lineCounterMeasurement.style.lineHeight = '1.22';
       lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
       lineCounterMeasurement.style.fontWeight = 'normal';
     }
@@ -2506,19 +2505,19 @@ async function renderSlideToCanvas(slide, canvas) {
           <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
         <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 546.4px; width: 2101.5px; height: 906.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
+        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
           <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
         </div>
       `;
     } else {
       slideDiv.innerHTML = `
-        <div class="slide-left-column" style="position: absolute; left: 0; top: 480px; width: 1363px; height: 1200px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 50px; box-sizing: border-box;">
+        <div class="slide-left-column" style="position: absolute; left: 0; top: 662px; width: 1363px; height: 836px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 50px; box-sizing: border-box;">
           <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 20px; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
           <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
         </div>
         <div class="slide-divider" style="position: absolute; left: 1363px; top: 680px; width: 3px; height: 800px; background-color: #ffffff;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1463px; top: 480px; width: 2177px; height: 1200px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.35; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
+        <div class="slide-right-column" style="position: absolute; left: 1463px; top: 662px; width: 2177px; height: 836px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
+          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
         </div>
       `;
     }
@@ -2526,8 +2525,8 @@ async function renderSlideToCanvas(slide, canvas) {
     const quoteFontSize = isLovers ? '82px' : '85px';
     const authorTracking = isLovers ? '0.15em' : '2px';
     const quoteTextColor = hasHighlight ? contextColor : textColor;
-    const quoteTop = isLovers ? '546.4px' : '480px';
-    const quoteHeight = isLovers ? '906.3px' : '1200px';
+    const quoteTop = isLovers ? '574.4px' : '662px';
+    const quoteHeight = isLovers ? '850.3px' : '836px';
     slideDiv.innerHTML = `
       <div class="slide-quote-container" style="position: absolute; left: 200px; top: ${quoteTop}; width: 3440px; height: ${quoteHeight}; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
         <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: ${quoteFontSize}; line-height: 1.45; color: ${quoteTextColor}; text-align: center; margin-bottom: 80px; width: 100%;">“${cleanText}”</div>
@@ -2537,8 +2536,8 @@ async function renderSlideToCanvas(slide, canvas) {
   } else {
     const titleWeight = isLovers ? '500' : '300';
     const titleTextColor = hasHighlight ? contextColor : textColor;
-    const titleTop = isLovers ? '546.4px' : '480px';
-    const titleHeight = isLovers ? '906.3px' : '1200px';
+    const titleTop = isLovers ? '574.4px' : '662px';
+    const titleHeight = isLovers ? '850.3px' : '836px';
     slideDiv.innerHTML = `
       <div class="slide-center-title" style="position: absolute; left: 200px; top: ${titleTop}; width: 3440px; height: ${titleHeight}; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: ${titleWeight}; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">
         <div style="width: 100%;">${cleanText}</div>
