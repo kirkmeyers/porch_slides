@@ -1836,12 +1836,48 @@ function renderActiveSlide() {
 function updateActiveSlideNotesPreview() {
   if (!activeSlideNotesPreview) return;
   const slide = slidesData[activeSlideIndex];
+  const btnResetNotes = document.getElementById('btn-reset-notes');
   if (!slide) {
-    activeSlideNotesPreview.textContent = '-';
+    if ('value' in activeSlideNotesPreview) {
+      activeSlideNotesPreview.value = '';
+    } else {
+      activeSlideNotesPreview.textContent = '-';
+    }
+    if (btnResetNotes) btnResetNotes.style.display = 'none';
     return;
   }
+  const isCustom = slide.customNotes !== undefined && slide.customNotes !== null && slide.customNotes.trim() !== '';
   const notes = extractSlideNotes(slide);
-  activeSlideNotesPreview.textContent = notes || '(No notes for this slide)';
+  if ('value' in activeSlideNotesPreview) {
+    activeSlideNotesPreview.value = notes || '';
+  } else {
+    activeSlideNotesPreview.textContent = notes || '(No notes for this slide)';
+  }
+  if (btnResetNotes) {
+    btnResetNotes.style.display = isCustom ? 'inline-block' : 'none';
+  }
+}
+
+if (activeSlideNotesPreview) {
+  activeSlideNotesPreview.addEventListener('input', (e) => {
+    const slide = slidesData[activeSlideIndex];
+    if (!slide) return;
+    slide.customNotes = e.target.value;
+    const btnResetNotes = document.getElementById('btn-reset-notes');
+    if (btnResetNotes) {
+      btnResetNotes.style.display = slide.customNotes.trim() !== '' ? 'inline-block' : 'none';
+    }
+  });
+}
+
+const btnResetNotesEl = document.getElementById('btn-reset-notes');
+if (btnResetNotesEl) {
+  btnResetNotesEl.addEventListener('click', () => {
+    const slide = slidesData[activeSlideIndex];
+    if (!slide) return;
+    delete slide.customNotes;
+    updateActiveSlideNotesPreview();
+  });
 }
 
 // 11. Scale Editor Preview dynamically to fit parent
@@ -1947,6 +1983,11 @@ activeSlideTextarea.addEventListener('input', (e) => {
   
   // Apply orphan prevention in memory
   slide.text = preventOrphans(normalizedHtml);
+  slide.rawText = slide.text;
+  if (slide.type === 'quote') {
+    slide.quoteText = slide.text;
+  }
+  delete slide.customNotes;
   
   // Update UI preview (innerHTML is required for &nbsp; / \u00a0 to render correctly)
   if (slide.type === 'scripture') {
@@ -1985,13 +2026,18 @@ slideCanvasPreview.addEventListener('input', (e) => {
   
   if (target.classList.contains('slide-ref-book')) {
     slide.refBook = target.textContent.toUpperCase();
+    slide.bookName = target.textContent;
+    delete slide.customNotes;
   } else if (target.classList.contains('slide-ref-verse')) {
     slide.refVerse = target.textContent;
+    delete slide.customNotes;
   } else if (target.classList.contains('slide-text-body')) {
     const normalizedHtml = normalizeLineBreaks(target.innerHTML);
     // Run preventOrphans on innerHTML to clean up orphans dynamically in memory
     const cleanedHtml = preventOrphans(normalizedHtml);
     slide.text = cleanedHtml;
+    slide.rawText = cleanedHtml;
+    delete slide.customNotes;
     // Show raw text with newlines in editor text area
     activeSlideTextarea.value = cleanedHtml.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
     const lines = measureLines(cleanedHtml, isPoetry);
@@ -2010,6 +2056,8 @@ slideCanvasPreview.addEventListener('input', (e) => {
     // Run preventOrphans on innerHTML to support manual line breaks (<br>)
     const cleanedHtml = preventOrphans(normalizedHtml);
     slide.text = cleanedHtml;
+    slide.rawText = cleanedHtml;
+    delete slide.customNotes;
     // Show raw text with newlines in editor text area
     activeSlideTextarea.value = cleanedHtml.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
     const lines = measureLines(cleanedHtml, false);
@@ -2027,6 +2075,9 @@ slideCanvasPreview.addEventListener('input', (e) => {
     const normalizedHtml = normalizeLineBreaks(rawText);
     const cleanedHtml = preventOrphans(normalizedHtml);
     slide.text = cleanedHtml;
+    slide.rawText = cleanedHtml;
+    slide.quoteText = cleanedHtml;
+    delete slide.customNotes;
     activeSlideTextarea.value = cleanedHtml.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
     const lines = measureLines(cleanedHtml, false);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
@@ -2040,6 +2091,8 @@ slideCanvasPreview.addEventListener('input', (e) => {
     }
   } else if (target.classList.contains('slide-quote-author')) {
     slide.author = target.textContent.toUpperCase();
+    slide.quoteAuthor = target.textContent.toUpperCase();
+    delete slide.customNotes;
   }
   updateActiveSlideNotesPreview();
 });
@@ -2122,6 +2175,12 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
         activeSlideLinesEl.className = 'badge success';
         activeSlideOverflowWarning.style.display = 'none';
       }
+
+      slide.rawText = slide.text;
+      delete slide.customNotes;
+      updateContextButtonStates(slide);
+      updateActiveSlideNotesPreview();
+      renderSlideDeck();
     }
   } catch (error) {
     console.error("Failed to update translation:", error);
@@ -2163,6 +2222,11 @@ if (activeSlideFormatEl) {
       activeSlideLinesEl.className = 'badge success';
       activeSlideOverflowWarning.style.display = 'none';
     }
+
+    slide.rawText = slide.text;
+    delete slide.customNotes;
+    updateActiveSlideNotesPreview();
+    renderSlideDeck();
   });
 }
 
@@ -2190,7 +2254,7 @@ function getSlideFilename(slide, index) {
     filename += `${bookClean}_${verseClean}.png`;
   } else {
     // Truncate title for filename
-    const raw = slide.rawText || slide.text || 'point';
+    const raw = slide.text || slide.rawText || 'point';
     const titleClean = raw.toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .substring(0, 20)
@@ -2335,6 +2399,8 @@ function toggleSelectionEmphasis() {
       }
       const normalizedHtml = normalizeLineBreaks(updatedHtml);
       slide.text = preventOrphans(normalizedHtml);
+      slide.rawText = slide.text;
+      delete slide.customNotes;
 
       activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
       const maxLines = getMaxLines();

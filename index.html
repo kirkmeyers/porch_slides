@@ -268,10 +268,11 @@
                     </select>
                   </div>
                   <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px;">
-                    <span class="info-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">ProPresenter Notes:</span>
-                    <div id="active-slide-notes-preview" style="font-size: 0.8rem; line-height: 1.35; color: #ddd; background: rgba(0, 0, 0, 0.3); padding: 6px 8px; border-radius: 4px; width: 100%; max-height: 70px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.08); font-style: italic; word-break: break-word;">
-                      -
+                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                      <span class="info-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">ProPresenter Notes:</span>
+                      <button id="btn-reset-notes" type="button" style="display: none; background: none; border: none; color: #6366f1; font-size: 0.75rem; cursor: pointer; padding: 0;" title="Reset to auto-generated notes">↺ Reset</button>
                     </div>
+                    <textarea id="active-slide-notes-preview" rows="2" placeholder="Auto-generated from slide content..." style="font-size: 0.8rem; line-height: 1.35; color: #ddd; background: rgba(0, 0, 0, 0.3); padding: 6px 8px; border-radius: 4px; width: 100%; min-height: 48px; max-height: 80px; resize: vertical; border: 1px solid rgba(255, 255, 255, 0.08); font-style: normal; word-break: break-word; outline: none; font-family: inherit; box-sizing: border-box;"></textarea>
                   </div>
                   <p class="warning-text" id="active-slide-overflow-warning" style="display: none;">
                     ⚠️ Warning: Text exceeds max lines! It will be cut off or scaled improperly. Reduce the text or split the slide.

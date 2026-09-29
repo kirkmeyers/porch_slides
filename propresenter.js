@@ -217,17 +217,24 @@ export function textToRtf(text) {
 export function extractSlideNotes(slide) {
   if (!slide) return '';
 
+  // Return custom notes if user explicitly provided/edited them
+  if (slide.customNotes !== undefined && slide.customNotes !== null && slide.customNotes.trim() !== '') {
+    return slide.customNotes.trim();
+  }
+
   if (slide.type === 'scripture') {
-    // Determine friendly reference (e.g. Genesis 1:1)
-    const book = slide.bookName || slide.refBook || '';
+    // Prioritize refBook / refVerse since user edits in the editor update them
+    const book = slide.refBook || slide.bookName || '';
     const verse = slide.refVerse || '';
     const ref = `${book} ${verse}`.trim();
 
     // Parse HTML to extract highlighted/emphasized text
     let emphasizedText = '';
+    const slideContent = slide.text || slide.rawText || '';
+
     if (typeof document !== 'undefined') {
       let container = document.createElement('div');
-      container.innerHTML = slide.text || '';
+      container.innerHTML = slideContent;
 
       const highlights = container.querySelectorAll('.highlight');
       if (highlights.length > 0) {
@@ -248,12 +255,11 @@ export function extractSlideNotes(slide) {
       }
     } else {
       // Regex fallback for non-browser/test environments
-      const html = slide.text || '';
-      const hlMatches = [...html.matchAll(/<span class="highlight">([\s\S]*?)<\/span>/gi)];
+      const hlMatches = [...slideContent.matchAll(/<span class="highlight">([\s\S]*?)<\/span>/gi)];
       if (hlMatches.length > 0) {
         emphasizedText = hlMatches.map(m => m[1].replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()).join(' ');
       } else {
-        emphasizedText = html.replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        emphasizedText = slideContent.replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       }
     }
 
@@ -264,15 +270,15 @@ export function extractSlideNotes(slide) {
   }
 
   if (slide.type === 'quote') {
-    const rawQuote = slide.quoteText || slide.text || '';
-    const rawAuthor = slide.quoteAuthor || slide.author || '';
+    const rawQuote = slide.text || slide.quoteText || slide.rawText || '';
+    const rawAuthor = slide.author || slide.quoteAuthor || '';
     const cleanQuote = rawQuote.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     const cleanAuthor = rawAuthor.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     return cleanAuthor ? `“${cleanQuote}” — ${cleanAuthor}` : `“${cleanQuote}”`;
   }
 
   // Sermon Point
-  const raw = slide.rawText || slide.text || '';
+  const raw = slide.text || slide.rawText || '';
   return raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
 
@@ -281,14 +287,15 @@ export function extractSlideNotes(slide) {
  */
 export function getSlideCueLabel(slide, index) {
   if (slide.type === 'scripture') {
-    const book = slide.bookName || slide.refBook || '';
+    const book = slide.refBook || slide.bookName || '';
     const verse = slide.refVerse || '';
     return `${book} ${verse}`.trim() || `Scripture ${index + 1}`;
   }
   if (slide.type === 'quote') {
-    return slide.quoteAuthor ? `Quote: ${slide.quoteAuthor}` : `Quote ${index + 1}`;
+    const author = slide.author || slide.quoteAuthor || '';
+    return author ? `Quote: ${author}` : `Quote ${index + 1}`;
   }
-  const raw = slide.rawText || slide.text || `Point ${index + 1}`;
+  const raw = slide.text || slide.rawText || `Point ${index + 1}`;
   const clean = raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   return clean.length > 30 ? `${clean.substring(0, 30)}...` : clean;
 }
@@ -297,8 +304,15 @@ export function getSlideCueLabel(slide, index) {
  * Categorize a slide into a ProPresenter CueGroup with name, color, and grouping key
  */
 export function getSlideGroupInfo(slide, index) {
+  if (!slide) {
+    return {
+      groupKey: 'blank',
+      name: 'Blank',
+      color: { red: 0.25, green: 0.25, blue: 0.25, alpha: 1.0 }
+    };
+  }
   if (slide.type === 'scripture') {
-    const book = slide.bookName || slide.refBook || '';
+    const book = slide.refBook || slide.bookName || '';
     const verse = slide.refVerse || '';
     const ref = `${book} ${verse}`.trim();
     return {
@@ -308,7 +322,7 @@ export function getSlideGroupInfo(slide, index) {
     };
   }
   if (slide.type === 'quote') {
-    const author = slide.quoteAuthor || slide.author || '';
+    const author = slide.author || slide.quoteAuthor || '';
     return {
       groupKey: `quote:${index}`, // Quotes each get their own group
       name: author ? `Quote: ${author}` : `Quote ${index + 1}`,
@@ -316,7 +330,7 @@ export function getSlideGroupInfo(slide, index) {
     };
   }
   // Sermon Point
-  const raw = slide.rawText || slide.text || `Point ${index + 1}`;
+  const raw = slide.text || slide.rawText || `Point ${index + 1}`;
   const clean = raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   const shortName = clean.length > 25 ? `${clean.substring(0, 25)}...` : clean;
   return {
@@ -356,7 +370,7 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
     const cueUUID = generateUUID();
     item.cueUUID = cueUUID;
 
-    const groupInfo = getSlideGroupInfo(item.slide, index);
+    const groupInfo = item.groupInfo || getSlideGroupInfo(item.slide, index);
 
     if (currentGroup && currentGroup.groupKey === groupInfo.groupKey) {
       currentGroup.cueUUIDs.push(cueUUID);
@@ -404,7 +418,10 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
   slideItems.forEach((item) => {
     const cue = new ProtoWriter();
     writeUUID(cue, 1, item.cueUUID);
-    cue.writeString(2, item.filename); // Cue Name
+    const cueName = item.cueName !== undefined ? item.cueName : (item.label || item.filename || '');
+    if (cueName) {
+      cue.writeString(2, cueName);
+    }
     cue.writeInt32(5, 1); // completion_action_type: COMPLETION_ACTION_TYPE_LAST
     cue.writeBool(12, true); // isEnabled
 
@@ -435,91 +452,91 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
     size.writeDouble(2, 2160);
     baseSlide.writeMessage(6, size);
 
-    // Slide Element (tag 1 in Slide: repeated Element elements = 1)
-    const slideElem = new ProtoWriter();
+    // Only add graphic element if slide is not blank and has a filename
+    if (!item.isBlank && item.filename) {
+      const slideElem = new ProtoWriter();
+      const gfxElem = new ProtoWriter();
+      const gfxElemUUID = generateUUID();
+      writeUUID(gfxElem, 1, gfxElemUUID);
+      gfxElem.writeString(2, item.filename);
 
-    // Graphics.Element (tag 1 in Slide.Element)
-    const gfxElem = new ProtoWriter();
-    const gfxElemUUID = generateUUID();
-    writeUUID(gfxElem, 1, gfxElemUUID);
-    gfxElem.writeString(2, item.filename);
+      // Bounds: 0, 0, 3840, 2160 (tag 3 in Graphics.Element)
+      const bounds = new ProtoWriter();
+      const origin = new ProtoWriter();
+      bounds.writeMessage(1, origin, true); // origin: {}
+      const elemSize = new ProtoWriter();
+      elemSize.writeDouble(1, 3840);
+      elemSize.writeDouble(2, 2160);
+      bounds.writeMessage(2, elemSize);
+      gfxElem.writeMessage(3, bounds);
+      gfxElem.writeDouble(5, 1.0); // opacity
 
-    // Bounds: 0, 0, 3840, 2160 (tag 3 in Graphics.Element)
-    const bounds = new ProtoWriter();
-    const origin = new ProtoWriter();
-    bounds.writeMessage(1, origin, true); // origin: {}
-    const elemSize = new ProtoWriter();
-    elemSize.writeDouble(1, 3840);
-    elemSize.writeDouble(2, 2160);
-    bounds.writeMessage(2, elemSize);
-    gfxElem.writeMessage(3, bounds);
-    gfxElem.writeDouble(5, 1.0); // opacity
+      // Path: closed rectangle with 4 BezierPoints (tag 8 in Graphics.Element)
+      const path = new ProtoWriter();
+      writeRectanglePath(path);
+      gfxElem.writeMessage(8, path);
 
-    // Path: closed rectangle with 4 BezierPoints (tag 8 in Graphics.Element)
-    const path = new ProtoWriter();
-    writeRectanglePath(path);
-    gfxElem.writeMessage(8, path);
+      // Fill: Media Fill (tag 9 in Graphics.Element)
+      const fill = new ProtoWriter();
+      fill.writeBool(4, true); // enable
 
-    // Fill: Media Fill (tag 9 in Graphics.Element)
-    const fill = new ProtoWriter();
-    fill.writeBool(4, true); // enable
+      // Media (tag 3 in Fill)
+      const media = new ProtoWriter();
+      writeUUID(media, 1, generateUUID());
 
-    // Media (tag 3 in Fill)
-    const media = new ProtoWriter();
-    writeUUID(media, 1, generateUUID());
+      // Media URL (tag 2 in Media)
+      const url = new ProtoWriter();
+      url.writeInt32(3, 1); // platform: PLATFORM_MACOS
+      url.writeString(2, `Media/Assets/${item.filename}`); // relative path
+      const localRel = new ProtoWriter();
+      localRel.writeInt32(1, 10); // root: ROOT_SHOW
+      localRel.writeString(2, `Media/Assets/${item.filename}`);
+      url.writeMessage(4, localRel);
+      media.writeMessage(2, url);
 
-    // Media URL (tag 2 in Media)
-    const url = new ProtoWriter();
-    url.writeInt32(3, 1); // platform: PLATFORM_MACOS
-    url.writeString(2, `Media/Assets/${item.filename}`); // relative path
-    const localRel = new ProtoWriter();
-    localRel.writeInt32(1, 10); // root: ROOT_SHOW
-    localRel.writeString(2, `Media/Assets/${item.filename}`);
-    url.writeMessage(4, localRel);
-    media.writeMessage(2, url);
+      // Metadata (tag 3 in Media)
+      const meta = new ProtoWriter();
+      meta.writeString(5, 'png');
+      media.writeMessage(3, meta);
 
-    // Metadata (tag 3 in Media)
-    const meta = new ProtoWriter();
-    meta.writeString(5, 'png');
-    media.writeMessage(3, meta);
+      // Image Properties (tag 5 in Media)
+      const imgProps = new ProtoWriter();
+      const drawing = new ProtoWriter();
+      drawing.writeInt32(1, 1); // scale_behavior: SCALE_BEHAVIOR_FILL
+      const natSize = new ProtoWriter();
+      natSize.writeDouble(1, 3840);
+      natSize.writeDouble(2, 2160);
+      drawing.writeMessage(5, natSize);
+      const customBounds = new ProtoWriter();
+      drawing.writeMessage(7, customBounds, true); // custom_image_bounds: {}
+      const cropInsets = new ProtoWriter();
+      drawing.writeMessage(14, cropInsets, true); // crop_insets: {}
+      drawing.writeInt32(15, 1); // alpha_type: ALPHA_TYPE_STRAIGHT
+      imgProps.writeMessage(1, drawing);
 
-    // Image Properties (tag 5 in Media)
-    const imgProps = new ProtoWriter();
-    const drawing = new ProtoWriter();
-    drawing.writeInt32(1, 1); // scale_behavior: SCALE_BEHAVIOR_FILL
-    const natSize = new ProtoWriter();
-    natSize.writeDouble(1, 3840);
-    natSize.writeDouble(2, 2160);
-    drawing.writeMessage(5, natSize);
-    const customBounds = new ProtoWriter();
-    drawing.writeMessage(7, customBounds, true); // custom_image_bounds: {}
-    const cropInsets = new ProtoWriter();
-    drawing.writeMessage(14, cropInsets, true); // crop_insets: {}
-    drawing.writeInt32(15, 1); // alpha_type: ALPHA_TYPE_STRAIGHT
-    imgProps.writeMessage(1, drawing);
+      // File Properties (tag 2 in ImageTypeProperties)
+      const fileProps = new ProtoWriter();
+      const localUrl = new ProtoWriter();
+      localUrl.writeInt32(3, 1); // platform: PLATFORM_MACOS
+      localUrl.writeString(2, `Media/Assets/${item.filename}`);
+      const localFileRel = new ProtoWriter();
+      localFileRel.writeInt32(1, 10); // root: ROOT_SHOW
+      localFileRel.writeString(2, `Media/Assets/${item.filename}`);
+      localUrl.writeMessage(4, localFileRel);
+      fileProps.writeMessage(1, localUrl);
+      imgProps.writeMessage(2, fileProps);
 
-    // File Properties (tag 2 in ImageTypeProperties)
-    const fileProps = new ProtoWriter();
-    const localUrl = new ProtoWriter();
-    localUrl.writeInt32(3, 1); // platform: PLATFORM_MACOS
-    localUrl.writeString(2, `Media/Assets/${item.filename}`);
-    const localFileRel = new ProtoWriter();
-    localFileRel.writeInt32(1, 10); // root: ROOT_SHOW
-    localFileRel.writeString(2, `Media/Assets/${item.filename}`);
-    localUrl.writeMessage(4, localFileRel);
-    fileProps.writeMessage(1, localUrl);
-    imgProps.writeMessage(2, fileProps);
+      media.writeMessage(5, imgProps);
 
-    media.writeMessage(5, imgProps);
+      fill.writeMessage(3, media);
+      gfxElem.writeMessage(9, fill);
 
-    fill.writeMessage(3, media);
-    gfxElem.writeMessage(9, fill);
+      slideElem.writeMessage(1, gfxElem);
+      baseSlide.writeMessage(1, slideElem);
 
-    slideElem.writeMessage(1, gfxElem);
-    baseSlide.writeMessage(1, slideElem);
-
-    // Element Build Order: list element UUID (tag 2 in Slide)
-    writeUUID(baseSlide, 2, gfxElemUUID);
+      // Element Build Order: list element UUID (tag 2 in Slide)
+      writeUUID(baseSlide, 2, gfxElemUUID);
+    }
 
     presSlide.writeMessage(1, baseSlide);
 
@@ -564,6 +581,33 @@ export async function exportProPresenterBundle({
   const zip = new JSZip();
   const slideItems = [];
 
+  // 1. Add 5 blank slides at the beginning of the presentation
+  // Labels on 1, 2, 4, & 5 are blank; label on 3rd slide is "Porch Live Locations - Confidence ONLY"
+  const introBlanks = [
+    { label: '', cueName: '' },
+    { label: '', cueName: '' },
+    { label: 'Porch Live Locations - Confidence ONLY', cueName: 'Porch Live Locations - Confidence ONLY' },
+    { label: '', cueName: '' },
+    { label: '', cueName: '' }
+  ];
+
+  introBlanks.forEach((blank) => {
+    slideItems.push({
+      isBlank: true,
+      slide: null,
+      filename: '',
+      notes: blank.label || '',
+      label: blank.label || '',
+      cueName: blank.cueName || '',
+      groupInfo: {
+        groupKey: 'blank_intro',
+        name: 'Blank',
+        color: { red: 0.25, green: 0.25, blue: 0.25, alpha: 1.0 }
+      }
+    });
+  });
+
+  // 2. Render and add sermon slides
   for (let i = 0; i < slidesData.length; i++) {
     const slide = slidesData[i];
     const filename = getSlideFilename(slide, i);
@@ -586,6 +630,21 @@ export async function exportProPresenterBundle({
       label
     });
   }
+
+  // 3. Add 1 blank slide at the end of the whole presentation
+  slideItems.push({
+    isBlank: true,
+    slide: null,
+    filename: '',
+    notes: '',
+    label: '',
+    cueName: '',
+    groupInfo: {
+      groupKey: 'blank_outro',
+      name: 'Blank',
+      color: { red: 0.25, green: 0.25, blue: 0.25, alpha: 1.0 }
+    }
+  });
 
   if (onProgress) {
     onProgress(slidesData.length, slidesData.length, 'Generating ProPresenter presentation & notes...', 90);
