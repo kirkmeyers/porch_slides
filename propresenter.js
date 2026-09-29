@@ -471,10 +471,10 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
     // Media URL (tag 2 in Media)
     const url = new ProtoWriter();
     url.writeInt32(3, 1); // platform: PLATFORM_MACOS
-    url.writeString(2, `Media/${item.filename}`); // relative path
+    url.writeString(2, `Media/Assets/${item.filename}`); // relative path
     const localRel = new ProtoWriter();
     localRel.writeInt32(1, 10); // root: ROOT_SHOW
-    localRel.writeString(2, `Media/${item.filename}`);
+    localRel.writeString(2, `Media/Assets/${item.filename}`);
     url.writeMessage(4, localRel);
     media.writeMessage(2, url);
 
@@ -502,10 +502,10 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
     const fileProps = new ProtoWriter();
     const localUrl = new ProtoWriter();
     localUrl.writeInt32(3, 1); // platform: PLATFORM_MACOS
-    localUrl.writeString(2, `Media/${item.filename}`);
+    localUrl.writeString(2, `Media/Assets/${item.filename}`);
     const localFileRel = new ProtoWriter();
     localFileRel.writeInt32(1, 10); // root: ROOT_SHOW
-    localFileRel.writeString(2, `Media/${item.filename}`);
+    localFileRel.writeString(2, `Media/Assets/${item.filename}`);
     localUrl.writeMessage(4, localFileRel);
     fileProps.writeMessage(1, localUrl);
     imgProps.writeMessage(2, fileProps);
@@ -576,6 +576,7 @@ export async function exportProPresenterBundle({
     }
 
     const pngBlob = await renderSlideToCanvas(slide, canvas);
+    zip.folder('Media/Assets').file(filename, pngBlob);
     zip.folder('Media').file(filename, pngBlob);
 
     slideItems.push({
