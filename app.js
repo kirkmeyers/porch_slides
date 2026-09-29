@@ -298,7 +298,7 @@ function updateCalibrationForTheme() {
       lineCounterCalibration.style.width = '2101.5px';
       lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
       lineCounterCalibration.style.lineHeight = '1.22';
-      lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
+      lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
       lineCounterCalibration.style.fontWeight = 'normal';
       lineCounterCalibration.style.webkitFontSmoothing = 'subpixel-antialiased';
     }
@@ -306,7 +306,7 @@ function updateCalibrationForTheme() {
       lineCounterMeasurement.style.width = '2101.5px';
       lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
       lineCounterMeasurement.style.lineHeight = '1.22';
-      lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
+      lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
       lineCounterMeasurement.style.fontWeight = 'normal';
       lineCounterMeasurement.style.webkitFontSmoothing = 'subpixel-antialiased';
     }
@@ -347,23 +347,35 @@ if (slideThemeEl) {
 
 function checkLocalFontPresence() {
   const detector = document.getElementById('font-haas-status');
-  // Simple check: Neue Haas Grotesk vs generic sans-serif width comparison
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  const text = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  if (!detector) return;
   
-  context.font = '72px sans-serif';
-  const widthSans = context.measureText(text).width;
+  const isLoaded = document.fonts && (
+    document.fonts.check('16px "Neue Haas Grotesk Display Pro"') ||
+    document.fonts.check('16px "Neue Haas Grotesk"')
+  );
   
-  context.font = '72px "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif';
-  const widthHaas = context.measureText(text).width;
-  
-  if (widthSans !== widthHaas || navigator.userAgent.includes('Mac')) {
-    detector.textContent = 'Active (Neue Haas Grotesk Display Pro Resolved)';
+  if (isLoaded) {
+    detector.textContent = 'Active (Neue Haas Grotesk Display Pro Loaded)';
     detector.className = 'status-indicator success';
   } else {
-    detector.textContent = 'Active (System Fallback Engaged)';
-    detector.className = 'status-indicator info';
+    // Fallback: Canvas width comparison against generic sans-serif
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    const text = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    
+    context.font = '72px sans-serif';
+    const widthSans = context.measureText(text).width;
+    
+    context.font = '72px "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", sans-serif';
+    const widthHaas = context.measureText(text).width;
+    
+    if (Math.abs(widthSans - widthHaas) > 2) {
+      detector.textContent = 'Active (Neue Haas Grotesk Display Pro Resolved)';
+      detector.className = 'status-indicator success';
+    } else {
+      detector.textContent = 'Active (System Fallback Engaged)';
+      detector.className = 'status-indicator info';
+    }
   }
 }
 
@@ -2604,7 +2616,7 @@ async function renderSlideToCanvas(slide, canvas) {
         </div>
         <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
         <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
+          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
         </div>
       `;
     } else {
@@ -3087,6 +3099,9 @@ async function checkUrlHashForReview() {
     if (!encoded) return;
     
     try {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
       const payload = await decompressDeckPayload(encoded);
       if (payload && payload.slides && payload.slides.length > 0) {
         if (payload.theme && slideThemeEl) {

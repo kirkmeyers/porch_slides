@@ -42,6 +42,75 @@
   src: url('./fonts/IBMPlexMono-Bold.ttf') format('truetype');
 }
 
+/* ==========================================================================
+   Typography: Neue Haas Grotesk Display Pro (Bundled Web Font)
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-55Roman.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-56Italic.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-65Medium.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk Display Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-75Bold.otf') format('opentype');
+}
+
+/* Also alias 'Neue Haas Grotesk' to the same bundled web font */
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-55Roman.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-56Italic.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-65Medium.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'Neue Haas Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fonts/NeueHaasGroteskDisplayPro-75Bold.otf') format('opentype');
+}
+
 /* Universal Slashed Zero for IBM Plex Mono elements */
 .slide-ref-book,
 .slide-ref-verse,
