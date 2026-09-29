@@ -449,8 +449,12 @@ applyContextOpacity(contextOpacityEl.value);
 function preventOrphans(htmlOrText) {
   if (!htmlOrText) return '';
   
+  // Normalize existing non-breaking spaces back to regular spaces first,
+  // preventing repeated calls from marching backwards and replacing all spaces.
+  const normalized = htmlOrText.replace(/&#160;|&nbsp;|\u00a0/gi, ' ');
+
   const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlOrText;
+  tempDiv.innerHTML = normalized;
   
   function processLastTextNode(node) {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -488,6 +492,15 @@ function normalizeLineBreaks(html) {
   cleaned = cleaned.replace(/(<br\s*\/?>)+$/gi, '');
   cleaned = cleaned.replace(/<br\s*\/?>/gi, '<br />');
   return cleaned;
+}
+
+// Format slide HTML into human-readable plain text for the editor textarea,
+// stripping non-breaking space entities and converting line breaks to newlines.
+function formatTextForTextarea(html) {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/&#160;|&nbsp;|\u00a0/gi, ' ');
 }
 
 // 6. Abbreviation Parser
@@ -1455,7 +1468,7 @@ function removeUpperContext() {
 
     // Update UI
     editorBodyEl.innerHTML = slide.text;
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
     const maxLines = getMaxLines();
@@ -1544,7 +1557,7 @@ function removeLowerContext() {
 
     // Update UI
     editorBodyEl.innerHTML = slide.text;
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
     const maxLines = getMaxLines();
@@ -1616,7 +1629,7 @@ async function addUpperContext() {
 
     // Update UI
     editorBodyEl.innerHTML = slide.text;
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
     const maxLines = getMaxLines();
     const lines = measureLines(slide.text, isPoetry);
@@ -1688,7 +1701,7 @@ async function addLowerContext() {
 
     // Update UI
     editorBodyEl.innerHTML = slide.text;
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
     const maxLines = getMaxLines();
     const lines = measureLines(slide.text, isPoetry);
@@ -1745,7 +1758,7 @@ function renderActiveSlide() {
       editorBodyEl.classList.remove('format-poetry');
     }
     
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
     activeSlideTranslationContainer.style.display = 'flex';
     activeSlideTranslationEl.value = slide.translation || translationEl.value;
     if (activeSlideFormatContainer) {
@@ -1775,7 +1788,7 @@ function renderActiveSlide() {
     editorQuoteTextEl.innerHTML = `“${slide.text}”`;
     editorQuoteAuthorEl.textContent = slide.author;
     
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
     activeSlideTranslationContainer.style.display = 'none';
     if (activeSlideFormatContainer) activeSlideFormatContainer.style.display = 'none';
     const upperContextBar = document.getElementById('editor-upper-context-bar');
@@ -1798,7 +1811,7 @@ function renderActiveSlide() {
     editorBodyEl.classList.remove('format-poetry');
     
     editorTitleEl.innerHTML = slide.text;
-    activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(slide.text);
     activeSlideTranslationContainer.style.display = 'none';
     if (activeSlideFormatContainer) activeSlideFormatContainer.style.display = 'none';
     const upperContextBar = document.getElementById('editor-upper-context-bar');
@@ -1862,7 +1875,7 @@ if (activeSlideNotesPreview) {
   activeSlideNotesPreview.addEventListener('input', (e) => {
     const slide = slidesData[activeSlideIndex];
     if (!slide) return;
-    slide.customNotes = e.target.value;
+    slide.customNotes = e.target.value.replace(/&#160;|&nbsp;|\u00a0/gi, ' ');
     const btnResetNotes = document.getElementById('btn-reset-notes');
     if (btnResetNotes) {
       btnResetNotes.style.display = slide.customNotes.trim() !== '' ? 'inline-block' : 'none';
@@ -1977,8 +1990,9 @@ activeSlideTextarea.addEventListener('input', (e) => {
   const slide = slidesData[activeSlideIndex];
   const newVal = e.target.value;
   
-  // Convert newlines to HTML line breaks
-  const htmlWithLineBreaks = newVal.replace(/\n/g, '<br>');
+  // Clean any non-breaking space entities and convert newlines to HTML line breaks
+  const cleanVal = newVal.replace(/&#160;|&nbsp;|\u00a0/gi, ' ');
+  const htmlWithLineBreaks = cleanVal.replace(/\n/g, '<br>');
   const normalizedHtml = normalizeLineBreaks(htmlWithLineBreaks);
   
   // Apply orphan prevention in memory
@@ -2039,7 +2053,7 @@ slideCanvasPreview.addEventListener('input', (e) => {
     slide.rawText = cleanedHtml;
     delete slide.customNotes;
     // Show raw text with newlines in editor text area
-    activeSlideTextarea.value = cleanedHtml.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
     const lines = measureLines(cleanedHtml, isPoetry);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
@@ -2059,7 +2073,7 @@ slideCanvasPreview.addEventListener('input', (e) => {
     slide.rawText = cleanedHtml;
     delete slide.customNotes;
     // Show raw text with newlines in editor text area
-    activeSlideTextarea.value = cleanedHtml.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
     const lines = measureLines(cleanedHtml, false);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
@@ -2078,7 +2092,7 @@ slideCanvasPreview.addEventListener('input', (e) => {
     slide.rawText = cleanedHtml;
     slide.quoteText = cleanedHtml;
     delete slide.customNotes;
-    activeSlideTextarea.value = cleanedHtml.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+    activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
     const lines = measureLines(cleanedHtml, false);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
@@ -2162,7 +2176,7 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
       
       // Update UI
       editorBodyEl.innerHTML = slide.text;
-      activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+      activeSlideTextarea.value = formatTextForTextarea(slide.text);
       
       // Re-verify line limits
       const lines = measureLines(slide.text, isPoetry);
@@ -2204,7 +2218,7 @@ if (activeSlideFormatEl) {
       if (!slide.text.includes('<br')) {
         slide.text = formatPoeticVerse(slide.text);
         editorBodyEl.innerHTML = slide.text;
-        activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+        activeSlideTextarea.value = formatTextForTextarea(slide.text);
       }
     } else {
       editorBodyEl.classList.remove('format-poetry');
@@ -2402,7 +2416,7 @@ function toggleSelectionEmphasis() {
       slide.rawText = slide.text;
       delete slide.customNotes;
 
-      activeSlideTextarea.value = slide.text.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;|\u00a0/g, ' ');
+      activeSlideTextarea.value = formatTextForTextarea(slide.text);
       const maxLines = getMaxLines();
       const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
       const lines = measureLines(slide.text, isPoetry);

@@ -187,14 +187,87 @@ export function writeRectanglePath(path) {
 }
 
 /**
+ * Clean notes, labels, and text of HTML tags, entities (including &#160;, &nbsp;, \u00a0),
+ * and excessive whitespace.
+ * Ensures ProPresenter notes and UI preview text are completely free of HTML/XML entities.
+ */
+export function cleanNotesText(str) {
+  if (!str) return '';
+  let res = String(str);
+
+  // 1. Decode double-escaped entities like &amp;#160; or &amp;nbsp;
+  res = res.replace(/&amp;(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (m, g1) => '&' + g1 + ';');
+
+  // 2. Strip HTML tags like <span>, <br>, <sup>, etc.
+  res = res.replace(/<[^>]*>/g, ' ');
+
+  // 3. Replace non-breaking spaces (literal numeric entity, named entity, or unicode char)
+  res = res.replace(/&#160;|&nbsp;|\u00a0/gi, ' ');
+
+  // 4. Common HTML entities
+  res = res
+    .replace(/&ldquo;|&#8220;/gi, '“')
+    .replace(/&rdquo;|&#8221;/gi, '”')
+    .replace(/&lsquo;|&#8216;/gi, '‘')
+    .replace(/&rsquo;|&#8217;/gi, '’')
+    .replace(/&mdash;|&#8212;/gi, '—')
+    .replace(/&ndash;|&#8211;/gi, '–')
+    .replace(/&hellip;|&#8230;/gi, '…')
+    .replace(/&middot;|&#183;/gi, '·')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;|&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&');
+
+  // 5. Any remaining numeric entities
+  res = res.replace(/&#(\d+);/g, (match, dec) => {
+    const code = parseInt(dec, 10);
+    if (code === 160) return ' ';
+    try {
+      return String.fromCodePoint(code);
+    } catch {
+      return match;
+    }
+  }).replace(/&#x([0-9a-f]+);/gi, (match, hex) => {
+    const code = parseInt(hex, 16);
+    if (code === 160) return ' ';
+    try {
+      return String.fromCodePoint(code);
+    } catch {
+      return match;
+    }
+  });
+
+  // 6. In browser environments, use DOMParser to decode any remaining obscure entities
+  if (typeof document !== 'undefined' && res.includes('&')) {
+    try {
+      const doc = new DOMParser().parseFromString(res, 'text/html');
+      if (doc && doc.body) {
+        res = doc.body.textContent || res;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 7. Ensure any leftover non-breaking spaces are turned into regular spaces
+  res = res.replace(/&#160;|&nbsp;|\u00a0/gi, ' ');
+
+  // 8. Collapse whitespace and trim
+  return res.replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Convert plain text to standard Rich Text Format (RTF) string for ProPresenter 7 notes
  */
 export function textToRtf(text) {
   if (!text) return '';
+  const cleaned = cleanNotesText(text);
   let rtf = '';
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const code = text.charCodeAt(i);
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    const code = cleaned.charCodeAt(i);
     if (char === '\\') rtf += '\\\\';
     else if (char === '{') rtf += '\\{';
     else if (char === '}') rtf += '\\}';
@@ -219,13 +292,13 @@ export function extractSlideNotes(slide) {
 
   // Return custom notes if user explicitly provided/edited them
   if (slide.customNotes !== undefined && slide.customNotes !== null && slide.customNotes.trim() !== '') {
-    return slide.customNotes.trim();
+    return cleanNotesText(slide.customNotes);
   }
 
   if (slide.type === 'scripture') {
     // Prioritize refBook / refVerse since user edits in the editor update them
-    const book = slide.refBook || slide.bookName || '';
-    const verse = slide.refVerse || '';
+    const book = cleanNotesText(slide.refBook || slide.bookName || '');
+    const verse = cleanNotesText(slide.refVerse || '');
     const ref = `${book} ${verse}`.trim();
 
     // Parse HTML to extract highlighted/emphasized text
@@ -243,7 +316,7 @@ export function extractSlideNotes(slide) {
           const clone = h.cloneNode(true);
           // Strip verse superscript numbers
           clone.querySelectorAll('sup').forEach(s => s.remove());
-          const t = clone.textContent.replace(/\s+/g, ' ').trim();
+          const t = cleanNotesText(clone.textContent || clone.innerText || '');
           if (t) parts.push(t);
         });
         emphasizedText = parts.join(' ');
@@ -251,35 +324,35 @@ export function extractSlideNotes(slide) {
         // Fallback: entire verse content without <sup> tags
         const clone = container.cloneNode(true);
         clone.querySelectorAll('sup').forEach(s => s.remove());
-        emphasizedText = clone.textContent.replace(/\s+/g, ' ').trim();
+        emphasizedText = cleanNotesText(clone.textContent || clone.innerText || '');
       }
     } else {
       // Regex fallback for non-browser/test environments
       const hlMatches = [...slideContent.matchAll(/<span class="highlight">([\s\S]*?)<\/span>/gi)];
       if (hlMatches.length > 0) {
-        emphasizedText = hlMatches.map(m => m[1].replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()).join(' ');
+        emphasizedText = hlMatches.map(m => cleanNotesText(m[1].replace(/<sup[\s\S]*?<\/sup>/gi, ''))).filter(Boolean).join(' ');
       } else {
-        emphasizedText = slideContent.replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+        emphasizedText = cleanNotesText(slideContent.replace(/<sup[\s\S]*?<\/sup>/gi, ''));
       }
     }
 
     if (ref && emphasizedText) {
-      return `${ref} - ${emphasizedText}`;
+      return cleanNotesText(`${ref} - ${emphasizedText}`);
     }
-    return ref || emphasizedText;
+    return cleanNotesText(ref || emphasizedText);
   }
 
   if (slide.type === 'quote') {
     const rawQuote = slide.text || slide.quoteText || slide.rawText || '';
     const rawAuthor = slide.author || slide.quoteAuthor || '';
-    const cleanQuote = rawQuote.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-    const cleanAuthor = rawAuthor.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const cleanQuote = cleanNotesText(rawQuote);
+    const cleanAuthor = cleanNotesText(rawAuthor);
     return cleanAuthor ? `“${cleanQuote}” — ${cleanAuthor}` : `“${cleanQuote}”`;
   }
 
   // Sermon Point
   const raw = slide.text || slide.rawText || '';
-  return raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  return cleanNotesText(raw);
 }
 
 /**
@@ -287,16 +360,16 @@ export function extractSlideNotes(slide) {
  */
 export function getSlideCueLabel(slide, index) {
   if (slide.type === 'scripture') {
-    const book = slide.refBook || slide.bookName || '';
-    const verse = slide.refVerse || '';
+    const book = cleanNotesText(slide.refBook || slide.bookName || '');
+    const verse = cleanNotesText(slide.refVerse || '');
     return `${book} ${verse}`.trim() || `Scripture ${index + 1}`;
   }
   if (slide.type === 'quote') {
-    const author = slide.author || slide.quoteAuthor || '';
+    const author = cleanNotesText(slide.author || slide.quoteAuthor || '');
     return author ? `Quote: ${author}` : `Quote ${index + 1}`;
   }
   const raw = slide.text || slide.rawText || `Point ${index + 1}`;
-  const clean = raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const clean = cleanNotesText(raw);
   return clean.length > 30 ? `${clean.substring(0, 30)}...` : clean;
 }
 
@@ -312,8 +385,8 @@ export function getSlideGroupInfo(slide, index) {
     };
   }
   if (slide.type === 'scripture') {
-    const book = slide.refBook || slide.bookName || '';
-    const verse = slide.refVerse || '';
+    const book = cleanNotesText(slide.refBook || slide.bookName || '');
+    const verse = cleanNotesText(slide.refVerse || '');
     const ref = `${book} ${verse}`.trim();
     return {
       groupKey: `scripture:${ref || index}`,
@@ -322,7 +395,7 @@ export function getSlideGroupInfo(slide, index) {
     };
   }
   if (slide.type === 'quote') {
-    const author = slide.author || slide.quoteAuthor || '';
+    const author = cleanNotesText(slide.author || slide.quoteAuthor || '');
     return {
       groupKey: `quote:${index}`, // Quotes each get their own group
       name: author ? `Quote: ${author}` : `Quote ${index + 1}`,
@@ -331,7 +404,7 @@ export function getSlideGroupInfo(slide, index) {
   }
   // Sermon Point
   const raw = slide.text || slide.rawText || `Point ${index + 1}`;
-  const clean = raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const clean = cleanNotesText(raw);
   const shortName = clean.length > 25 ? `${clean.substring(0, 25)}...` : clean;
   return {
     groupKey: `point:${index}`, // Each point gets its own group
