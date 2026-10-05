@@ -710,10 +710,10 @@ function measureLines(htmlContent, isPoetry = false, slideType = 'scripture') {
   const isQuote = slideType === 'quote';
 
   if (isQuote) {
-    lineCounterMeasurement.style.width = '2624px';
+    lineCounterMeasurement.style.width = '2615px';
     lineCounterMeasurement.style.fontSize = '82px';
     lineCounterMeasurement.style.lineHeight = '1.18';
-    lineCounterMeasurement.style.textAlign = 'center';
+    lineCounterMeasurement.style.textAlign = 'justify';
   } else if (isPoetry) {
     lineCounterMeasurement.style.width = '2101.5px';
     lineCounterMeasurement.style.fontSize = `${getScriptureFontSize()}px`;
@@ -2735,9 +2735,9 @@ async function renderSlideToCanvas(slide, canvas) {
     const quoteTextColor = hasHighlight ? contextColor : textColor;
     const quoteContent = `“${stripOuterQuotes(cleanText)}”`;
     slideDiv.innerHTML = `
-      <div class="slide-quote-container" style="position: absolute; left: 608px; top: 590px; width: 2624px; height: 590px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
-        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: center; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal;">${quoteContent}</div>
-        <div class="slide-quote-author" style="position: absolute; left: 515px; top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
+      <div class="slide-quote-container" style="position: absolute; left: 612.5px; top: 590px; width: 2615px; height: 585px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
+        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: justify; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal;">${quoteContent}</div>
+        <div class="slide-quote-author" style="position: absolute; left: 50%; transform: translateX(-50%); top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
       </div>
     `;
   } else {

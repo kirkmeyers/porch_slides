@@ -985,10 +985,10 @@ sup,
 /* Quote Slide Styling */
 .slide-quote-container {
   position: absolute;
-  left: 608px;
+  left: 612.5px;
   top: 590px;
-  width: 2624px;
-  height: 590px;
+  width: 2615px;
+  height: 585px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1002,7 +1002,7 @@ sup,
   font-size: 82px;
   line-height: 1.18;
   color: #ffffff;
-  text-align: center;
+  text-align: justify;
   width: 100%;
   outline: none;
   white-space: normal;
@@ -1012,7 +1012,8 @@ sup,
 
 .slide-quote-author {
   position: absolute;
-  left: 515px;
+  left: 50%;
+  transform: translateX(-50%);
   top: 591px;
   width: 1594px;
   height: 134px;
