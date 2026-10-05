@@ -985,10 +985,10 @@ sup,
 /* Quote Slide Styling */
 .slide-quote-container {
   position: absolute;
-  left: 200px;
-  top: 662px;
-  width: 3440px;
-  height: 836px;
+  left: 608px;
+  top: 590px;
+  width: 2624px;
+  height: 590px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -998,28 +998,39 @@ sup,
 
 .slide-quote-text {
   font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif;
-  font-size: 85px;
-  line-height: 1.45;
+  font-weight: normal;
+  font-size: 82px;
+  line-height: 1.18;
   color: #ffffff;
   text-align: center;
-  margin-bottom: 80px;
   width: 100%;
   outline: none;
   white-space: normal;
   word-break: normal;
+  box-sizing: border-box;
 }
 
 .slide-quote-author {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
-  font-size: 70px;
-  color: #ffffff;
+  position: absolute;
+  left: 515px;
+  top: 591px;
+  width: 1594px;
+  height: 134px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-size: 96px;
+  line-height: 1;
+  color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: normal;
   outline: none;
   white-space: normal;
   word-break: normal;
+  box-sizing: border-box;
   font-variant-numeric: slashed-zero;
   font-feature-settings: "zero" 1, "ss03" 1;
 }
@@ -1170,32 +1181,13 @@ sup,
   font-feature-settings: "zero" 1, "ss03" 1;
 }
 
-/* Lover's Series: Quote Slide - vertically centered where scripture is */
-.theme-lovers-series .slide-quote-container {
-  left: 200px;
-  top: 574.4px;
-  width: 3440px;
-  height: 850.3px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
 /* Lover's Series: Quote Slide */
 .theme-lovers-series .slide-quote-text {
   color: #000000;
-  font-size: 82px;
-  line-height: 1.45;
 }
 
 .theme-lovers-series .slide-quote-author {
   color: #000000;
-  font-size: 70px;
-  letter-spacing: 0.15em;
-  font-weight: 500;
-  font-variant-numeric: slashed-zero;
-  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 .theme-lovers-series .slide-center-title span.highlight,
@@ -1725,7 +1717,7 @@ textarea#active-slide-textarea:focus {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: normal;
   color: var(--accent-color);
 }
 

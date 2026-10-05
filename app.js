@@ -235,8 +235,9 @@ function formatPoeticVerse(text) {
   return split;
 }
 
-// Helper to get max lines limit (locked at 9 lines max for all themes)
-function getMaxLines() {
+// Helper to get max lines limit (locked at 9 lines max for scripture/points, 6 lines max for quotes)
+function getMaxLines(slideType = 'scripture') {
+  if (slideType === 'quote') return 6;
   return 9;
 }
 
@@ -406,8 +407,8 @@ if (scriptureFontSizeEl) {
     if (slidesData.length > 0 && activeSlideIndex >= 0) {
       const slide = slidesData[activeSlideIndex];
       const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-      const maxLines = getMaxLines();
-      const lines = measureLines(slide.text, isPoetry);
+      const maxLines = getMaxLines(slide.type);
+      const lines = measureLines(slide.text, isPoetry, slide.type);
       activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
       if (lines > maxLines) {
         activeSlideLinesEl.className = 'badge danger';
@@ -703,18 +704,34 @@ async function fetchChapter(bookId, chapter, translation) {
 }
 
 // 8. Line measurement and Overflow Detection
-function measureLines(htmlContent, isPoetry = false) {
+function measureLines(htmlContent, isPoetry = false, slideType = 'scripture') {
   if (!htmlContent || !htmlContent.trim()) return 0;
 
-  if (isPoetry) {
+  const isQuote = slideType === 'quote';
+
+  if (isQuote) {
+    lineCounterMeasurement.style.width = '2624px';
+    lineCounterMeasurement.style.fontSize = '82px';
+    lineCounterMeasurement.style.lineHeight = '1.18';
+    lineCounterMeasurement.style.textAlign = 'center';
+  } else if (isPoetry) {
+    lineCounterMeasurement.style.width = '2101.5px';
+    lineCounterMeasurement.style.fontSize = `${getScriptureFontSize()}px`;
+    lineCounterMeasurement.style.lineHeight = '1.22';
     lineCounterMeasurement.style.textAlign = 'left';
   } else {
+    lineCounterMeasurement.style.width = '2101.5px';
+    lineCounterMeasurement.style.fontSize = `${getScriptureFontSize()}px`;
+    lineCounterMeasurement.style.lineHeight = '1.22';
     lineCounterMeasurement.style.textAlign = 'justify';
   }
 
   // Strip trailing break tags to prevent empty ghost lines
   const cleanHtml = htmlContent.trim().replace(/(<br\s*\/?>)+$/gi, '');
-  lineCounterMeasurement.innerHTML = cleanHtml;
+  const measurementHtml = isQuote ? `“${stripOuterQuotes(cleanHtml)}”` : cleanHtml;
+  lineCounterMeasurement.innerHTML = measurementHtml;
+
+  const currentSingleLineHeight = isQuote ? (82 * 1.18) : singleLineHeight;
 
   // 1. Precise line-box detection using DOM Range
   try {
@@ -724,7 +741,7 @@ function measureLines(htmlContent, isPoetry = false) {
 
     if (rects && rects.length > 0) {
       const lineTops = [];
-      const threshold = singleLineHeight * 0.45;
+      const threshold = currentSingleLineHeight * 0.45;
       for (let i = 0; i < rects.length; i++) {
         const r = rects[i];
         if (r.width === 0 && r.height === 0) continue;
@@ -747,8 +764,8 @@ function measureLines(htmlContent, isPoetry = false) {
   lineCounterMeasurement.innerHTML = '';
 
   // Subtract a small descender tolerance (15% of line height) so 8.1 lines isn't rounded up to 9
-  const effectiveHeight = Math.max(0, scrollHeight - (singleLineHeight * 0.15));
-  return Math.max(1, Math.round(effectiveHeight / singleLineHeight));
+  const effectiveHeight = Math.max(0, scrollHeight - (currentSingleLineHeight * 0.15));
+  return Math.max(1, Math.round(effectiveHeight / currentSingleLineHeight));
 }
 
 // Compilation helper for building passage HTML from whole verses and an optional trailing partial verse
@@ -1272,9 +1289,10 @@ function renderSlideDeck() {
         </div>
       `;
     } else if (slide.type === 'quote') {
+      const quoteContent = `“${stripOuterQuotes(slide.text)}”`;
       slideCanvas.innerHTML = `
         <div class="slide-quote-container">
-          <div class="slide-quote-text">“${slide.text}”</div>
+          <div class="slide-quote-text">${quoteContent}</div>
           <div class="slide-quote-author">${slide.author}</div>
         </div>
       `;
@@ -1471,8 +1489,8 @@ function removeUpperContext() {
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-    const maxLines = getMaxLines();
-    const lines = measureLines(slide.text, isPoetry);
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -1560,8 +1578,8 @@ function removeLowerContext() {
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-    const maxLines = getMaxLines();
-    const lines = measureLines(slide.text, isPoetry);
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -1631,8 +1649,8 @@ async function addUpperContext() {
     editorBodyEl.innerHTML = slide.text;
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
-    const maxLines = getMaxLines();
-    const lines = measureLines(slide.text, isPoetry);
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -1703,8 +1721,8 @@ async function addLowerContext() {
     editorBodyEl.innerHTML = slide.text;
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
-    const maxLines = getMaxLines();
-    const lines = measureLines(slide.text, isPoetry);
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -1785,7 +1803,7 @@ function renderActiveSlide() {
     editorQuoteContainer.style.display = 'flex';
     editorBodyEl.classList.remove('format-poetry');
     
-    editorQuoteTextEl.innerHTML = `“${slide.text}”`;
+    editorQuoteTextEl.innerHTML = `“${stripOuterQuotes(slide.text)}”`;
     editorQuoteAuthorEl.textContent = slide.author;
     
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
@@ -1827,9 +1845,9 @@ function renderActiveSlide() {
   }
   
   // Calculate and display line count
-  const maxLines = getMaxLines();
+  const maxLines = getMaxLines(slide.type);
   const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-  const lines = measureLines(slide.text, isPoetry);
+  const lines = measureLines(slide.text, isPoetry, slide.type);
   activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
   
   if (lines > maxLines) {
@@ -2007,15 +2025,15 @@ activeSlideTextarea.addEventListener('input', (e) => {
   if (slide.type === 'scripture') {
     editorBodyEl.innerHTML = slide.text;
   } else if (slide.type === 'quote') {
-    editorQuoteTextEl.innerHTML = slide.text;
+    editorQuoteTextEl.innerHTML = `“${stripOuterQuotes(slide.text)}”`;
   } else {
     editorTitleEl.innerHTML = slide.text;
   }
   
   // Re-verify line limits
-  const maxLines = getMaxLines();
+  const maxLines = getMaxLines(slide.type);
   const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-  const lines = measureLines(slide.text, isPoetry);
+  const lines = measureLines(slide.text, isPoetry, slide.type);
   activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
   if (lines > maxLines) {
     activeSlideLinesEl.className = 'badge danger';
@@ -2035,7 +2053,6 @@ activeSlideTextarea.addEventListener('input', (e) => {
 slideCanvasPreview.addEventListener('input', (e) => {
   const target = e.target;
   const slide = slidesData[activeSlideIndex];
-  const maxLines = getMaxLines();
   const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
   
   if (target.classList.contains('slide-ref-book')) {
@@ -2054,7 +2071,8 @@ slideCanvasPreview.addEventListener('input', (e) => {
     delete slide.customNotes;
     // Show raw text with newlines in editor text area
     activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
-    const lines = measureLines(cleanedHtml, isPoetry);
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(cleanedHtml, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -2074,7 +2092,8 @@ slideCanvasPreview.addEventListener('input', (e) => {
     delete slide.customNotes;
     // Show raw text with newlines in editor text area
     activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
-    const lines = measureLines(cleanedHtml, false);
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(cleanedHtml, false, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -2093,7 +2112,8 @@ slideCanvasPreview.addEventListener('input', (e) => {
     slide.quoteText = cleanedHtml;
     delete slide.customNotes;
     activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
-    const lines = measureLines(cleanedHtml, false);
+    const maxLines = getMaxLines('quote');
+    const lines = measureLines(cleanedHtml, false, 'quote');
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -2147,7 +2167,7 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
   try {
     const chapterData = await fetchChapter(slide.bookId, slide.chapter, newTranslation);
     if (chapterData) {
-      const maxLines = getMaxLines();
+      const maxLines = getMaxLines(slide.type);
       const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
       const requestedContext = parseInt(contextWindowEl.value) || 0;
       const best = findBestBlockForVerse(
@@ -2179,7 +2199,7 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
       activeSlideTextarea.value = formatTextForTextarea(slide.text);
       
       // Re-verify line limits
-      const lines = measureLines(slide.text, isPoetry);
+      const lines = measureLines(slide.text, isPoetry, slide.type);
       activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
       if (lines > maxLines) {
         activeSlideLinesEl.className = 'badge danger';
@@ -2225,8 +2245,8 @@ if (activeSlideFormatEl) {
     }
     
     const isPoetry = slide.format === 'poetry';
-    const lines = measureLines(slide.text, isPoetry);
-    const maxLines = getMaxLines();
+    const maxLines = getMaxLines(slide.type);
+    const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
     if (lines > maxLines) {
       activeSlideLinesEl.className = 'badge danger';
@@ -2417,9 +2437,9 @@ function toggleSelectionEmphasis() {
       delete slide.customNotes;
 
       activeSlideTextarea.value = formatTextForTextarea(slide.text);
-      const maxLines = getMaxLines();
+      const maxLines = getMaxLines(slide.type);
       const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
-      const lines = measureLines(slide.text, isPoetry);
+      const lines = measureLines(slide.text, isPoetry, slide.type);
       activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
       if (lines > maxLines) {
         activeSlideLinesEl.className = 'badge danger';
@@ -2712,15 +2732,12 @@ async function renderSlideToCanvas(slide, canvas) {
       `;
     }
   } else if (slide.type === 'quote') {
-    const quoteFontSize = isLovers ? '82px' : '85px';
-    const authorTracking = isLovers ? '0.15em' : '2px';
     const quoteTextColor = hasHighlight ? contextColor : textColor;
-    const quoteTop = isLovers ? '574.4px' : '662px';
-    const quoteHeight = isLovers ? '850.3px' : '836px';
+    const quoteContent = `“${stripOuterQuotes(cleanText)}”`;
     slideDiv.innerHTML = `
-      <div class="slide-quote-container" style="position: absolute; left: 200px; top: ${quoteTop}; width: 3440px; height: ${quoteHeight}; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
-        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-size: ${quoteFontSize}; line-height: 1.45; color: ${quoteTextColor}; text-align: center; margin-bottom: 80px; width: 100%;">“${cleanText}”</div>
-        <div class="slide-quote-author" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 70px; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: ${authorTracking}; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
+      <div class="slide-quote-container" style="position: absolute; left: 608px; top: 590px; width: 2624px; height: 590px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
+        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: center; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal;">${quoteContent}</div>
+        <div class="slide-quote-author" style="position: absolute; left: 515px; top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
       </div>
     `;
   } else {

@@ -345,7 +345,8 @@ export function extractSlideNotes(slide) {
   if (slide.type === 'quote') {
     const rawQuote = slide.text || slide.quoteText || slide.rawText || '';
     const rawAuthor = slide.author || slide.quoteAuthor || '';
-    const cleanQuote = cleanNotesText(rawQuote);
+    const strippedQuote = rawQuote.replace(/^[“”"']+|[“”"']+$/g, '').trim();
+    const cleanQuote = cleanNotesText(strippedQuote);
     const cleanAuthor = cleanNotesText(rawAuthor);
     return cleanAuthor ? `“${cleanQuote}” — ${cleanAuthor}` : `“${cleanQuote}”`;
   }
