@@ -414,8 +414,8 @@ if (scriptureFontSizeEl) {
 
 function applyContextOpacity(opacityVal) {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-  const colorRgb = isLovers ? '0, 0, 0' : '255, 255, 255';
-  const highlightColor = isLovers ? '#000000' : '#ffffff';
+  const colorRgb = isLovers ? '0, 0, 0' : '228, 227, 213';
+  const highlightColor = isLovers ? '#000000' : '#E4E3D5';
 
   // Update stylesheet variables dynamically or directly update style on canvas
   document.documentElement.style.setProperty('--muted-opacity', opacityVal);
@@ -2719,8 +2719,9 @@ async function renderSlideToCanvas(slide, canvas) {
   const cleanText = normalizeLineBreaks(slide.text);
 
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-  const textColor = isLovers ? '#000000' : '#ffffff';
-  const contextColor = isLovers ? `rgba(0, 0, 0, ${contextOpacityEl.value})` : `rgba(255, 255, 255, ${contextOpacityEl.value})`;
+  const textColor = isLovers ? '#000000' : '#E4E3D5';
+  const dividerColor = isLovers ? '#000000' : '#E4E3D5';
+  const contextColor = isLovers ? `rgba(0, 0, 0, ${contextOpacityEl.value})` : `rgba(228, 227, 213, ${contextOpacityEl.value})`;
   const hasHighlight = cleanText.includes('class="highlight"');
 
   // Set innerHTML based on slide type and active theme
@@ -2728,7 +2729,6 @@ async function renderSlideToCanvas(slide, canvas) {
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
     const textAlign = isPoetry ? 'left' : 'justify';
     const fontSize = getScriptureFontSize();
-    const dividerColor = isLovers ? '#000000' : '#ffffff';
     slideDiv.innerHTML = `
       <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
         <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>

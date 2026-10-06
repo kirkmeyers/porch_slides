@@ -872,7 +872,7 @@ input[type="range"] {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 500;
   font-size: 96px;
-  color: #ffffff;
+  color: #E4E3D5;
   text-transform: uppercase;
   text-align: center;
   line-height: 1.2;
@@ -887,7 +887,7 @@ input[type="range"] {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 500;
   font-size: 96px;
-  color: #ffffff;
+  color: #E4E3D5;
   text-align: center;
   line-height: 1.2;
   outline: none;
@@ -903,7 +903,7 @@ input[type="range"] {
   top: 592.4px;
   width: 7.8px;
   height: 814.3px;
-  background-color: #ffffff;
+  background-color: #E4E3D5;
 }
 
 /* Right scripture text column */
@@ -926,7 +926,7 @@ input[type="range"] {
   font-size: var(--scripture-font-size, 75px);
   line-height: 1.22;
   text-align: justify;
-  color: rgba(255, 255, 255, 0.25); /* Muted by default */
+  color: rgba(228, 227, 213, 0.25); /* Muted by default */
   outline: none;
   white-space: normal;
   word-break: normal;
@@ -940,7 +940,7 @@ input[type="range"] {
 
 /* Target verse highlight span styling */
 .slide-text-body span.highlight {
-  color: #ffffff;
+  color: #E4E3D5;
   opacity: 1.0;
   font-weight: normal;
 }
@@ -973,7 +973,7 @@ sup,
   font-weight: 500;
   font-size: 90px;
   line-height: 1.6;
-  color: #ffffff;
+  color: #E4E3D5;
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -1004,7 +1004,7 @@ sup,
   font-weight: normal;
   font-size: 82px;
   line-height: 1.18;
-  color: #ffffff;
+  color: #E4E3D5;
   text-align: justify;
   width: 100%;
   outline: none;
@@ -1028,7 +1028,7 @@ sup,
   font-weight: 400;
   font-size: 96px;
   line-height: 1;
-  color: #ffffff;
+  color: #E4E3D5;
   text-transform: uppercase;
   letter-spacing: normal;
   outline: none;
@@ -1042,7 +1042,7 @@ sup,
 /* Highlight & De-emphasis styling for sermon points and quotes */
 .slide-center-title span.highlight,
 .slide-quote-text span.highlight {
-  color: #ffffff !important;
+  color: #E4E3D5 !important;
   opacity: 1.0 !important;
 }
 
@@ -1050,7 +1050,7 @@ sup,
 .slide-center-title.has-highlight,
 .slide-quote-text:has(span.highlight),
 .slide-quote-text.has-highlight {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(228, 227, 213, 0.25);
 }
 
 /* ==========================================================================
