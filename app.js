@@ -295,40 +295,29 @@ function updateCalibrationForTheme() {
     document.body.classList.add('theme-lovers-series');
     if (lineLimitEl) lineLimitEl.value = '9';
     if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Lover\'s Series)';
-    if (lineCounterCalibration) {
-      lineCounterCalibration.style.width = '2101.5px';
-      lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
-      lineCounterCalibration.style.lineHeight = '1.22';
-      lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
-      lineCounterCalibration.style.fontWeight = 'normal';
-      lineCounterCalibration.style.webkitFontSmoothing = 'subpixel-antialiased';
-    }
-    if (lineCounterMeasurement) {
-      lineCounterMeasurement.style.width = '2101.5px';
-      lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
-      lineCounterMeasurement.style.lineHeight = '1.22';
-      lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
-      lineCounterMeasurement.style.fontWeight = 'normal';
-      lineCounterMeasurement.style.webkitFontSmoothing = 'subpixel-antialiased';
-    }
   } else {
     document.body.classList.remove('theme-lovers-series');
     if (lineLimitEl) lineLimitEl.value = '9';
     if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Porch Generic)';
-    if (lineCounterCalibration) {
-      lineCounterCalibration.style.width = '2177px';
-      lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
-      lineCounterCalibration.style.lineHeight = '1.22';
-      lineCounterCalibration.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
-      lineCounterCalibration.style.fontWeight = 'normal';
-    }
-    if (lineCounterMeasurement) {
-      lineCounterMeasurement.style.width = '2177px';
-      lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
-      lineCounterMeasurement.style.lineHeight = '1.22';
-      lineCounterMeasurement.style.fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif';
-      lineCounterMeasurement.style.fontWeight = 'normal';
-    }
+  }
+
+  const fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", "Inter", sans-serif';
+
+  if (lineCounterCalibration) {
+    lineCounterCalibration.style.width = '2101.5px';
+    lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
+    lineCounterCalibration.style.lineHeight = '1.22';
+    lineCounterCalibration.style.fontFamily = fontFamily;
+    lineCounterCalibration.style.fontWeight = 'normal';
+    lineCounterCalibration.style.webkitFontSmoothing = 'subpixel-antialiased';
+  }
+  if (lineCounterMeasurement) {
+    lineCounterMeasurement.style.width = '2101.5px';
+    lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
+    lineCounterMeasurement.style.lineHeight = '1.22';
+    lineCounterMeasurement.style.fontFamily = fontFamily;
+    lineCounterMeasurement.style.fontWeight = 'normal';
+    lineCounterMeasurement.style.webkitFontSmoothing = 'subpixel-antialiased';
   }
   calibrateLineHeight();
   applyContextOpacity(contextOpacityEl.value);
@@ -915,13 +904,44 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
     }
   }
 
-  const finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, isPoetry));
-  const finalLines = measureLines(finalHtml, isPoetry);
+  let finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, isPoetry));
+  let finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+
+  // Hard safety guard: Strictly enforce max lines (targetLines)
+  // 1. If partial verse pushed line count above targetLines, trim words from partial verse
+  while (finalLines > targetLines && partialVerseObj) {
+    const words = partialVerseObj.text.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      words.pop();
+      partialVerseObj.text = words.join(' ');
+    } else {
+      partialVerseObj = null;
+    }
+    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, isPoetry));
+    finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+  }
+
+  // 2. If whole verses (other than target verse) still push line count above targetLines, drop ending verses
+  while (finalLines > targetLines && wholeVerses.length > 1) {
+    const lastV = wholeVerses[wholeVerses.length - 1];
+    if (lastV.verse === targetVerse) break;
+    wholeVerses.pop();
+    currentEndVerse = wholeVerses[wholeVerses.length - 1].verse;
+    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, isPoetry));
+    finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+  }
+
+  // 3. If dropping ending verses still left it above targetLines and starting verse is not targetVerse, drop leading verses
+  while (finalLines > targetLines && wholeVerses.length > 1 && wholeVerses[0].verse !== targetVerse) {
+    wholeVerses.shift();
+    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, isPoetry));
+    finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+  }
 
   return {
     html: finalHtml,
     lines: finalLines,
-    startVerse: startVerse,
+    startVerse: wholeVerses.length > 0 ? wholeVerses[0].verse : startVerse,
     endVerse: partialVerseObj ? nextVerseNum : currentEndVerse,
     wholeVerses: wholeVerses,
     partialVerseObj: partialVerseObj,
@@ -2708,45 +2728,30 @@ async function renderSlideToCanvas(slide, canvas) {
     const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
     const textAlign = isPoetry ? 'left' : 'justify';
     const fontSize = getScriptureFontSize();
-    if (isLovers) {
-      slideDiv.innerHTML = `
-        <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
-          <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
-          <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: #000000; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
-        </div>
-        <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: #000000;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
-        </div>
-      `;
-    } else {
-      slideDiv.innerHTML = `
-        <div class="slide-left-column" style="position: absolute; left: 0; top: 662px; width: 1363px; height: 836px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0 50px; box-sizing: border-box;">
-          <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 20px; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
-          <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 100px; color: #ffffff; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
-        </div>
-        <div class="slide-divider" style="position: absolute; left: 1363px; top: 680px; width: 3px; height: 800px; background-color: #ffffff;"></div>
-        <div class="slide-right-column" style="position: absolute; left: 1463px; top: 662px; width: 2177px; height: 836px; display: flex; flex-direction: column; justify-content: center; padding-right: 200px; box-sizing: border-box;">
-          <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor};">${cleanText}</div>
-        </div>
-      `;
-    }
+    const dividerColor = isLovers ? '#000000' : '#ffffff';
+    slideDiv.innerHTML = `
+      <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
+        <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refBook}</div>
+        <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.refVerse}</div>
+      </div>
+      <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: ${dividerColor};"></div>
+      <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
+        <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: subpixel-antialiased;">${cleanText}</div>
+      </div>
+    `;
   } else if (slide.type === 'quote') {
     const quoteTextColor = hasHighlight ? contextColor : textColor;
     const quoteContent = `“${stripOuterQuotes(cleanText)}”`;
     slideDiv.innerHTML = `
       <div class="slide-quote-container" style="position: absolute; left: 612.5px; top: 590px; width: 2615px; height: 585px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
-        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: justify; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal;">${quoteContent}</div>
+        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: justify; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal;">${quoteContent}</div>
         <div class="slide-quote-author" style="position: absolute; left: 50%; transform: translateX(-50%); top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">${slide.author}</div>
       </div>
     `;
   } else {
-    const titleWeight = isLovers ? '500' : '300';
     const titleTextColor = hasHighlight ? contextColor : textColor;
-    const titleTop = isLovers ? '574.4px' : '662px';
-    const titleHeight = isLovers ? '850.3px' : '836px';
     slideDiv.innerHTML = `
-      <div class="slide-center-title" style="position: absolute; left: 200px; top: ${titleTop}; width: 3440px; height: ${titleHeight}; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: ${titleWeight}; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">
+      <div class="slide-center-title" style="position: absolute; left: 200px; top: 574.4px; width: 3440px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1;">
         <div style="width: 100%;">${cleanText}</div>
       </div>
     `;

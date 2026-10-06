@@ -856,27 +856,27 @@ input[type="range"] {
 /* Left scripture reference column */
 .slide-left-column {
   position: absolute;
-  left: 0;
-  top: 662px;
-  width: 1363px;
-  height: 836px;
+  left: 122.5px;
+  top: 815.2px;
+  width: 1279.5px;
+  height: 368.6px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 0 50px;
+  padding: 0;
   box-sizing: border-box;
 }
 
 .slide-ref-book {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 500;
-  font-size: 100px;
+  font-size: 96px;
   color: #ffffff;
   text-transform: uppercase;
   text-align: center;
   line-height: 1.2;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   outline: none;
   min-width: 200px;
   font-variant-numeric: slashed-zero;
@@ -886,7 +886,7 @@ input[type="range"] {
 .slide-ref-verse {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 500;
-  font-size: 100px;
+  font-size: 96px;
   color: #ffffff;
   text-align: center;
   line-height: 1.2;
@@ -899,29 +899,30 @@ input[type="range"] {
 /* Vertical Divider */
 .slide-divider {
   position: absolute;
-  left: 1363px;
-  top: 680px;
-  width: 3px;
-  height: 800px;
+  left: 1504px;
+  top: 592.4px;
+  width: 7.8px;
+  height: 814.3px;
   background-color: #ffffff;
 }
 
 /* Right scripture text column */
 .slide-right-column {
   position: absolute;
-  left: 1463px;
-  top: 662px;
-  width: 2177px;
-  height: 836px;
+  left: 1613.8px;
+  top: 574.4px;
+  width: 2101.5px;
+  height: 850.3px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-right: 200px;
+  padding-right: 0;
   box-sizing: border-box;
 }
 
 .slide-text-body {
-  font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk", "Inter", sans-serif;
+  font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", "Inter", sans-serif;
+  font-weight: normal;
   font-size: var(--scripture-font-size, 75px);
   line-height: 1.22;
   text-align: justify;
@@ -929,6 +930,7 @@ input[type="range"] {
   outline: none;
   white-space: normal;
   word-break: normal;
+  -webkit-font-smoothing: subpixel-antialiased;
 }
 
 .slide-text-body.format-poetry,
@@ -940,6 +942,7 @@ input[type="range"] {
 .slide-text-body span.highlight {
   color: #ffffff;
   opacity: 1.0;
+  font-weight: normal;
 }
 
 /* Superscript verse number styling - line-height 0 to prevent line box inflation */
@@ -959,15 +962,15 @@ sup,
 .slide-center-title {
   position: absolute;
   left: 200px;
-  top: 662px;
+  top: 574.4px;
   width: 3440px;
-  height: 836px;
+  height: 850.3px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   font-family: 'IBM Plex Mono', monospace;
-  font-weight: 300;
+  font-weight: 500;
   font-size: 90px;
   line-height: 1.6;
   color: #ffffff;
@@ -1093,93 +1096,31 @@ sup,
 }
 
 /* Lover's Series: Left Scripture Reference Column */
-.theme-lovers-series .slide-left-column {
-  left: 122.5px;
-  top: 815.2px;
-  width: 1279.5px;
-  height: 368.6px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
 .theme-lovers-series .slide-ref-book {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
-  font-size: 96px;
   color: #000000;
-  margin-bottom: 0;
-  line-height: 1.2;
-  font-variant-numeric: slashed-zero;
-  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 .theme-lovers-series .slide-ref-verse {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
-  font-size: 96px;
   color: #000000;
-  line-height: 1.2;
-  font-variant-numeric: slashed-zero;
-  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 /* Lover's Series: Vertical Divider */
 .theme-lovers-series .slide-divider {
-  left: 1504px;
-  top: 592.4px;
-  width: 7.8px;
-  height: 814.3px;
   background-color: #000000;
 }
 
 /* Lover's Series: Right Scripture Text Column */
-.theme-lovers-series .slide-right-column {
-  left: 1613.8px;
-  top: 574.4px;
-  width: 2101.5px;
-  height: 850.3px;
-  padding-right: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
 .theme-lovers-series .slide-text-body {
-  font-family: "Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", sans-serif;
-  font-weight: normal;
-  font-size: var(--scripture-font-size, 75px);
-  line-height: 1.22;
-  text-align: justify;
   color: rgba(0, 0, 0, 0.25);
-  -webkit-font-smoothing: subpixel-antialiased;
 }
 
 .theme-lovers-series .slide-text-body span.highlight {
   color: #000000;
-  opacity: 1.0;
-  font-weight: normal;
 }
 
-/* Lover's Series: Sermon Point - vertically centered where scripture is */
+/* Lover's Series: Sermon Point */
 .theme-lovers-series .slide-center-title {
-  left: 200px;
-  top: 574.4px;
-  width: 3440px;
-  height: 850.3px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   color: #000000;
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 500;
-  font-size: 90px;
-  letter-spacing: 2px;
-  font-variant-numeric: slashed-zero;
-  font-feature-settings: "zero" 1, "ss03" 1;
 }
 
 /* Lover's Series: Quote Slide */
