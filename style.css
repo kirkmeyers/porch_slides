@@ -238,7 +238,18 @@ body {
   gap: 12px;
 }
 
-.settings-group h2 {
+details.settings-group.collapsible {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+details.settings-group.collapsible:not([open]) > :not(summary) {
+  display: none !important;
+}
+
+.settings-group h2,
+.settings-summary {
   font-size: 0.9rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -246,6 +257,74 @@ body {
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 8px;
+}
+
+.settings-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  transition: color 0.15s ease;
+}
+
+.settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-summary:hover {
+  color: var(--text-primary);
+}
+
+.settings-summary .chevron-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.settings-summary:hover .chevron-icon {
+  color: var(--text-primary);
+}
+
+details.settings-group.collapsible[open] > .settings-summary .chevron-icon {
+  transform: rotate(90deg);
+}
+
+details.settings-group.collapsible summary:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.btn-load-sample {
+  margin-top: 8px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-load-sample:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.btn-load-sample:active {
+  transform: scale(0.99);
 }
 
 .textarea-wrapper {
@@ -948,7 +1027,7 @@ input[type="range"] {
 .slide-text-body span.highlight {
   color: #E4E3D5;
   opacity: 1.0;
-  font-weight: 500;
+  font-weight: normal;
 }
 
 /* Superscript verse number styling - line-height 0 to prevent line box inflation */
@@ -1122,7 +1201,7 @@ sup,
 
 .theme-lovers-series .slide-text-body span.highlight {
   color: #000000;
-  font-weight: 500;
+  font-weight: normal;
 }
 
 /* Lover's Series: Sermon Point */

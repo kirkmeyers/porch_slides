@@ -122,9 +122,31 @@ const btnExportProPresenter = document.getElementById('btn-export-propresenter')
 const gridExportBar = document.getElementById('grid-export-bar');
 const btnGridExport = document.getElementById('btn-grid-export');
 const btnGridExportProPresenter = document.getElementById('btn-grid-export-propresenter');
-const btnDemo = document.getElementById('btn-demo');
-const btnDemoLovers = document.getElementById('btn-demo-lovers');
+const btnLoadSample = document.getElementById('btn-load-sample');
+const layoutDetailsEl = document.getElementById('details-layout-settings');
+const fontDetailsEl = document.getElementById('details-font-settings');
 const slideCountEl = document.getElementById('slide-count');
+
+// Persist collapsible spin-down accordion state
+if (layoutDetailsEl) {
+  const saved = localStorage.getItem('porch_layout_settings_open');
+  if (saved !== null) {
+    layoutDetailsEl.open = saved === 'true';
+  }
+  layoutDetailsEl.addEventListener('toggle', () => {
+    localStorage.setItem('porch_layout_settings_open', layoutDetailsEl.open);
+  });
+}
+
+if (fontDetailsEl) {
+  const saved = localStorage.getItem('porch_font_settings_open');
+  if (saved !== null) {
+    fontDetailsEl.open = saved === 'true';
+  }
+  fontDetailsEl.addEventListener('toggle', () => {
+    localStorage.setItem('porch_font_settings_open', fontDetailsEl.open);
+  });
+}
 
 // Dark Mode Friendly SVG Icon Constants
 const DOWNLOAD_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
@@ -429,7 +451,7 @@ function applyContextOpacity(opacityVal) {
   }
   dynamicStyle.textContent = `
     .slide-text-body { color: rgba(${colorRgb}, ${opacityVal}) !important; }
-    .slide-text-body span.highlight { color: ${highlightColor} !important; opacity: 1.0 !important; }
+    .slide-text-body span.highlight { color: ${highlightColor} !important; opacity: 1.0 !important; font-weight: normal !important; }
   `;
 }
 // Set initial opacity style
@@ -2622,13 +2644,29 @@ btnGenerate.addEventListener('click', async () => {
   }
 });
 
-// 16. Demo Outline Loader
-btnDemo.addEventListener('click', () => {
-  if (slideThemeEl) {
-    slideThemeEl.value = 'porch-generic';
-    updateCalibrationForTheme();
-  }
-  rawInputEl.value = `Slide 1: Jett Picture May 2026 (attached) 
+// 16. Unified Demo Outline Loader (Tied to currently selected Theme)
+if (btnLoadSample) {
+  btnLoadSample.addEventListener('click', () => {
+    const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
+    if (isLovers) {
+      rawInputEl.value = `2 Tim 3:1-5
+Ex. 32:1-4
+Idolatry Begins with Getting Used to God
+Idolatry Grows When We’re Discontent with God
+Tim Keller – “When anything in life is an absolute requirement for your happiness and self-worth, it is essentially an ‘idol,’ something you are worshiping.” 
+Ex 32:5-6
+Idolatry Redefines the Worship of God
+Ex 32:7-10
+Ex 19:4-6
+God’s Wrath is Terribly Appropriate for Idolatry
+Ps 96:4
+Ps 145:3
+Isa 42:8
+Ps 115:4-8
+Ex 32:30-34
+God’s Grace is Wonderfully Inappropriate for Idolaters.`;
+    } else {
+      rawInputEl.value = `Slide 1: Jett Picture May 2026 (attached) 
 Slide 2: Jett Ultrasound Picture (attached) 
 Slide 3: Mark 9:9-13 (ESV) 
 Slide 4: Theology of Suffering 
@@ -2646,30 +2684,17 @@ Slide 15: Luke 18:1 (ESV)
 Slide 16: Mark 9:28-29 (ESV) 
 Slide 17: James 5:13-16 (ESV)
 Slide 18: Judges 6:1-6 NLT`;
-});
-
-if (btnDemoLovers) {
-  btnDemoLovers.addEventListener('click', () => {
-    if (slideThemeEl) {
-      slideThemeEl.value = 'lovers-series';
-      updateCalibrationForTheme();
     }
-    rawInputEl.value = `2 Tim 3:1-5
-Ex. 32:1-4
-Idolatry Begins with Getting Used to God
-Idolatry Grows When We’re Discontent with God
-Tim Keller – “When anything in life is an absolute requirement for your happiness and self-worth, it is essentially an ‘idol,’ something you are worshiping.” 
-Ex 32:5-6
-Idolatry Redefines the Worship of God
-Ex 32:7-10
-Ex 19:4-6
-God’s Wrath is Terribly Appropriate for Idolatry
-Ps 96:4
-Ps 145:3
-Isa 42:8
-Ps 115:4-8
-Ex 32:30-34
-God’s Grace is Wonderfully Inappropriate for Idolaters.`;
+    updateCalibrationForTheme();
+
+    const spanEl = btnLoadSample.querySelector('span');
+    if (spanEl) {
+      const origText = spanEl.textContent;
+      spanEl.textContent = isLovers ? "Lovers Sample Loaded!" : "Porch Sample Loaded!";
+      setTimeout(() => {
+        spanEl.textContent = origText;
+      }, 1500);
+    }
   });
 }
 
@@ -2721,8 +2746,8 @@ async function renderSlideToCanvas(slide, canvas) {
   const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
   const textColor = isLovers ? '#000000' : '#E4E3D5';
   const dividerColor = isLovers ? '#000000' : '#E4E3D5';
-  // Ensure context text has sufficient contrast floor for downsampled ProPresenter thumbnails
-  const exportContextOpacity = isLovers ? contextOpacityEl.value : Math.max(0.35, parseFloat(contextOpacityEl.value || 0.25));
+  // Context opacity strictly honors user control without artificial floor
+  const exportContextOpacity = parseFloat(contextOpacityEl.value || 0.25);
   const contextColor = isLovers ? `rgba(0, 0, 0, ${exportContextOpacity})` : `rgba(228, 227, 213, ${exportContextOpacity})`;
   const hasHighlight = cleanText.includes('class="highlight"');
 
@@ -2733,12 +2758,12 @@ async function renderSlideToCanvas(slide, canvas) {
     const fontSize = getScriptureFontSize();
     slideDiv.innerHTML = `
       <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
-        <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision; -webkit-text-stroke: 0.5px currentColor;">${slide.refBook}</div>
-        <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision; -webkit-text-stroke: 0.5px currentColor;">${slide.refVerse}</div>
+        <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.refBook}</div>
+        <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.refVerse}</div>
       </div>
       <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: ${dividerColor};"></div>
       <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
-        <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision; -webkit-text-stroke: 0.6px currentColor;">${cleanText}</div>
+        <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${cleanText}</div>
       </div>
     `;
   } else if (slide.type === 'quote') {
@@ -2746,14 +2771,14 @@ async function renderSlideToCanvas(slide, canvas) {
     const quoteContent = `“${stripOuterQuotes(cleanText)}”`;
     slideDiv.innerHTML = `
       <div class="slide-quote-container" style="position: absolute; left: 612.5px; top: 590px; width: 2615px; height: 585px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
-        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: justify; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision; -webkit-text-stroke: 0.6px currentColor;">${quoteContent}</div>
-        <div class="slide-quote-author" style="position: absolute; left: 50%; transform: translateX(-50%); top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision; -webkit-text-stroke: 0.5px currentColor;">${slide.author}</div>
+        <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: justify; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${quoteContent}</div>
+        <div class="slide-quote-author" style="position: absolute; left: 50%; transform: translateX(-50%); top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.author}</div>
       </div>
     `;
   } else {
     const titleTextColor = hasHighlight ? contextColor : textColor;
     slideDiv.innerHTML = `
-      <div class="slide-center-title" style="position: absolute; left: 200px; top: 574.4px; width: 3440px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision; -webkit-text-stroke: 0.6px currentColor;">
+      <div class="slide-center-title" style="position: absolute; left: 200px; top: 574.4px; width: 3440px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
         <div style="width: 100%;">${cleanText}</div>
       </div>
     `;
@@ -2773,27 +2798,22 @@ async function renderSlideToCanvas(slide, canvas) {
       -webkit-font-smoothing: antialiased !important;
       -moz-osx-font-smoothing: grayscale !important;
       text-rendering: geometricPrecision !important;
-      -webkit-text-stroke: 0.6px currentColor !important;
     }
     .slide-text-body span.highlight {
       color: ${textColor} !important;
       opacity: 1.0 !important;
-      font-weight: 500 !important;
-      -webkit-text-stroke: 0.8px ${textColor} !important;
+      font-weight: normal !important;
     }
     .slide-center-title,
     .slide-quote-text {
       -webkit-font-smoothing: antialiased !important;
       -moz-osx-font-smoothing: grayscale !important;
       text-rendering: geometricPrecision !important;
-      -webkit-text-stroke: 0.6px currentColor !important;
     }
     .slide-center-title span.highlight,
     .slide-quote-text span.highlight {
       color: ${textColor} !important;
       opacity: 1.0 !important;
-      font-weight: 500 !important;
-      -webkit-text-stroke: 0.8px ${textColor} !important;
     }
     .slide-ref-book,
     .slide-ref-verse,
@@ -2801,7 +2821,6 @@ async function renderSlideToCanvas(slide, canvas) {
       -webkit-font-smoothing: antialiased !important;
       -moz-osx-font-smoothing: grayscale !important;
       text-rendering: geometricPrecision !important;
-      -webkit-text-stroke: 0.5px currentColor !important;
     }
     .slide-text-body sup {
       font-size: 0.55em;
@@ -2811,7 +2830,6 @@ async function renderSlideToCanvas(slide, canvas) {
       top: -0.85em;
       margin-right: 0;
       opacity: inherit;
-      -webkit-text-stroke: 0.4px currentColor !important;
     }
   `;
   
