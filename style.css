@@ -730,6 +730,10 @@ input[type="range"] {
   transform-origin: top left;
   transform: scale(var(--grid-scale, 0.0833333));
   pointer-events: none; /* Interact through the card wrapper instead */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 /* Remove slide canvas double border, box-shadow and background inside grid cards */
@@ -930,7 +934,9 @@ input[type="range"] {
   outline: none;
   white-space: normal;
   word-break: normal;
-  -webkit-font-smoothing: subpixel-antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
 }
 
 .slide-text-body.format-poetry,
@@ -942,7 +948,7 @@ input[type="range"] {
 .slide-text-body span.highlight {
   color: #E4E3D5;
   opacity: 1.0;
-  font-weight: normal;
+  font-weight: 500;
 }
 
 /* Superscript verse number styling - line-height 0 to prevent line box inflation */
@@ -1116,6 +1122,7 @@ sup,
 
 .theme-lovers-series .slide-text-body span.highlight {
   color: #000000;
+  font-weight: 500;
 }
 
 /* Lover's Series: Sermon Point */

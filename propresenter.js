@@ -585,7 +585,6 @@ export function buildProPresenterPresentation(presentationName, slideItems) {
       drawing.writeMessage(7, customBounds, true); // custom_image_bounds: {}
       const cropInsets = new ProtoWriter();
       drawing.writeMessage(14, cropInsets, true); // crop_insets: {}
-      drawing.writeInt32(15, 1); // alpha_type: ALPHA_TYPE_STRAIGHT
       imgProps.writeMessage(1, drawing);
 
       // File Properties (tag 2 in ImageTypeProperties)
