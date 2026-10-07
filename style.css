@@ -1028,6 +1028,19 @@ input[type="range"] {
   text-align: left !important;
 }
 
+.slide-text-body.format-mixed,
+.theme-lovers-series .slide-text-body.format-mixed {
+  text-align: justify;
+}
+
+/* Poetic lines embedded within a prose or mixed slide */
+.slide-text-body .poetry-line,
+.hidden-measurement-container .poetry-line {
+  display: inline-block;
+  text-align: left !important;
+  padding-left: 0;
+}
+
 /* Target verse highlight span styling */
 .slide-text-body span.highlight {
   color: #E4E3D5;
@@ -1717,6 +1730,11 @@ textarea#active-slide-textarea:focus {
 .proof-slide-text .highlight {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.proof-slide-text .poetry-line {
+  display: inline-block;
+  text-align: left;
 }
 
 .proof-slide-text sup {

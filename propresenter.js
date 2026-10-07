@@ -327,12 +327,38 @@ export function extractSlideNotes(slide) {
         emphasizedText = cleanNotesText(clone.textContent || clone.innerText || '');
       }
     } else {
-      // Regex fallback for non-browser/test environments
-      const hlMatches = [...slideContent.matchAll(/<span class="highlight">([\s\S]*?)<\/span>/gi)];
-      if (hlMatches.length > 0) {
-        emphasizedText = hlMatches.map(m => cleanNotesText(m[1].replace(/<sup[\s\S]*?<\/sup>/gi, ''))).filter(Boolean).join(' ');
+      // Tag-balancing fallback for non-browser/test environments (handles nested <span> tags)
+      const hlRegex = /<span\s+class="highlight">/gi;
+      let match;
+      const parts = [];
+      while ((match = hlRegex.exec(slideContent)) !== null) {
+        let depth = 1;
+        let cursor = match.index + match[0].length;
+        const tagRegex = /<\/?span[^>]*>/gi;
+        tagRegex.lastIndex = cursor;
+        let tagMatch;
+        let endIdx = slideContent.length;
+        while ((tagMatch = tagRegex.exec(slideContent)) !== null) {
+          if (tagMatch[0].startsWith('</')) {
+            depth--;
+            if (depth === 0) {
+              endIdx = tagMatch.index;
+              break;
+            }
+          } else {
+            depth++;
+          }
+        }
+        const innerContent = slideContent.substring(cursor, endIdx);
+        const stripped = cleanNotesText(innerContent.replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]+>/g, ' '));
+        if (stripped) parts.push(stripped);
+        hlRegex.lastIndex = endIdx;
+      }
+
+      if (parts.length > 0) {
+        emphasizedText = parts.join(' ');
       } else {
-        emphasizedText = cleanNotesText(slideContent.replace(/<sup[\s\S]*?<\/sup>/gi, ''));
+        emphasizedText = cleanNotesText(slideContent.replace(/<sup[\s\S]*?<\/sup>/gi, '').replace(/<[^>]+>/g, ' '));
       }
     }
 

@@ -257,6 +257,135 @@ function formatPoeticVerse(text) {
   return split;
 }
 
+// Registry of well-known embedded poetic stanzas within biblical prose narrative
+// Stored as `${bookId}_${chapter}_${verseNum}`
+const EMBEDDED_POETRY_REGISTRY = new Set([
+  '23_6_3', // Isaiah 6:3 (The Seraphim's Chant)
+  '42_1_46', '42_1_47', '42_1_48', '42_1_49', '42_1_50', '42_1_51', '42_1_52', '42_1_53', '42_1_54', '42_1_55', // Luke 1:46-55 (Mary's Magnificat)
+  '42_1_68', '42_1_69', '42_1_70', '42_1_71', '42_1_72', '42_1_73', '42_1_74', '42_1_75', '42_1_76', '42_1_77', '42_1_78', '42_1_79', // Luke 1:68-79 (Zechariah's Benedictus)
+  '50_2_6', '50_2_7', '50_2_8', '50_2_9', '50_2_10', '50_2_11', // Phil 2:6-11 (Christ Hymn)
+  '54_3_16', // 1 Tim 3:16 (Mystery of Godliness)
+  '1_2_23', // Gen 2:23 (Adam's Declaration of Eve)
+  '2_15_1', '2_15_2', '2_15_3', '2_15_4', '2_15_5', '2_15_6', '2_15_7', '2_15_8', '2_15_9', '2_15_10', '2_15_11', '2_15_12', '2_15_13', '2_15_14', '2_15_15', '2_15_16', '2_15_17', '2_15_18', // Ex 15:1-18 (Song of the Sea)
+  '66_4_8', '66_4_11', '66_5_9', '66_5_10' // Rev 4:8, 4:11, 5:9-10 (Heavenly Liturgies)
+]);
+
+// Helper to split a poetic string into individual couplet/stanza lines
+function splitPoeticLines(text) {
+  if (!text) return [];
+  let split = text.trim();
+  // 1. Semicolons, colons, or exclamations (supporting closing quotes)
+  if (/([;:!][”"']?)\s+/.test(split)) {
+    split = split.replace(/([;:!][”"']?)\s+/g, '$1<br />');
+  }
+  // 2. Conjunction commas (, and / , but / etc.)
+  else if (/,\s+(and|but|for|nor|yet|so)\b/i.test(split)) {
+    split = split.replace(/,\s+(and|but|for|nor|yet|so)\b/gi, ',<br />$1');
+  }
+  // 3. Central comma split for long lines (> 55 chars)
+  else if (split.includes(', ') && split.length > 55) {
+    const mid = split.length / 2;
+    const commaIndices = [];
+    let idx = split.indexOf(', ');
+    while (idx !== -1) {
+      commaIndices.push(idx);
+      idx = split.indexOf(', ', idx + 1);
+    }
+    if (commaIndices.length > 0) {
+      commaIndices.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+      const bestIdx = commaIndices[0];
+      split = split.substring(0, bestIdx + 1) + '<br />' + split.substring(bestIdx + 2);
+    }
+  }
+  return split.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
+}
+
+// Check if a verse has embedded poetry either via the curated registry or heuristic detection
+function isEmbeddedPoetryVerse(bookId, chapter, verseNum, text = '') {
+  const key = `${bookId}_${chapter}_${verseNum}`;
+  if (EMBEDDED_POETRY_REGISTRY.has(key)) return true;
+  if (!text) return false;
+  // Heuristic: introductory speech ending in colon/said followed by quoted lines
+  if (/[:]\s*([“"][^”"]+[”"])/.test(text)) {
+    const match = text.match(/[:]\s*([“"][^”"]+[”"])/);
+    if (match && match[1] && (/([;:!][”"']?)\s+/.test(match[1]) || /,\s+(and|but|for|nor|yet|so)\b/i.test(match[1]))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Detect and format embedded poetry within a prose verse
+// Returns { text, endsWithPoetry, toString() }
+function detectAndFormatEmbeddedPoetry(text, verseNum, bookId, chapter) {
+  if (!text) {
+    return { text: '', endsWithPoetry: false, toString() { return this.text; } };
+  }
+  if (text.includes('poetry-line')) {
+    return { text: text, endsWithPoetry: true, toString() { return this.text; } };
+  }
+
+  // Pattern 1: Intro speech formula with colon + quote
+  // e.g. "And one called to another and said: “Holy, holy, holy is the LORD of hosts; the whole earth is full of his glory!”"
+  const colonQuoteMatch = text.match(/^([\s\S]*?[:])\s*([“"][^”"]+[”"])([\s\S]*)$/);
+  if (colonQuoteMatch) {
+    const intro = colonQuoteMatch[1].trim();
+    const quote = colonQuoteMatch[2].trim();
+    const rest = colonQuoteMatch[3].trim();
+
+    const poeticLines = splitPoeticLines(quote);
+    if (poeticLines.length > 1) {
+      const wrappedPoetry = poeticLines.map(line => `<span class="poetry-line">${line}</span>`).join('<br />');
+      if (rest) {
+        return {
+          text: `${intro}<br />${wrappedPoetry}<br />${rest}`,
+          endsWithPoetry: false,
+          toString() { return this.text; }
+        };
+      } else {
+        return {
+          text: `${intro}<br />${wrappedPoetry}`,
+          endsWithPoetry: true,
+          toString() { return this.text; }
+        };
+      }
+    }
+  }
+
+  // Pattern 2: Curated embedded poetry verse where entire verse is poetry
+  const isRegistered = isEmbeddedPoetryVerse(bookId, chapter, verseNum, text);
+  if (isRegistered) {
+    const poeticLines = splitPoeticLines(text);
+    if (poeticLines.length > 1) {
+      return {
+        text: poeticLines.map(line => `<span class="poetry-line">${line}</span>`).join('<br />'),
+        endsWithPoetry: true,
+        toString() { return this.text; }
+      };
+    }
+  }
+
+  return { text: text, endsWithPoetry: false, toString() { return this.text; } };
+}
+
+// Convert all embedded quotes and poetic lines in existing HTML into .poetry-line spans
+function formatEmbeddedPoetryInHtml(html, bookId, chapter) {
+  if (!html) return '';
+  return html.replace(/(<span(?: class="highlight")?><sup>(\d+)<\/sup>)([\s\S]*?)(<\/span>)/gi, (match, prefix, verseNumStr, innerText, suffix) => {
+    const vNum = parseInt(verseNumStr, 10);
+    const formatted = detectAndFormatEmbeddedPoetry(innerText, vNum, bookId, chapter);
+    return `${prefix}${formatted.text}${suffix}`;
+  });
+}
+
+// Check whether a slide object contains mixed / embedded poetry
+function hasEmbeddedPoetryInSlide(slide) {
+  if (!slide || slide.type !== 'scripture') return false;
+  if (slide.format === 'mixed') return true;
+  if (slide.text && slide.text.includes('poetry-line')) return true;
+  return false;
+}
+
 // Helper to get max lines limit (locked at 9 lines max for scripture/points, 6 lines max for quotes)
 function getMaxLines(slideType = 'scripture') {
   if (slideType === 'quote') return 6;
@@ -417,7 +546,7 @@ if (scriptureFontSizeEl) {
     calibrateLineHeight();
     if (slidesData.length > 0 && activeSlideIndex >= 0) {
       const slide = slidesData[activeSlideIndex];
-      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
       const maxLines = getMaxLines(slide.type);
       const lines = measureLines(slide.text, isPoetry, slide.type);
       activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
@@ -780,19 +909,40 @@ function measureLines(htmlContent, isPoetry = false, slideType = 'scripture') {
 }
 
 // Compilation helper for building passage HTML from whole verses and an optional trailing partial verse
-function buildPassageHtml(wholeVerses, targetVerse, partialVerseObj = null, isPoetry = false) {
-  let html = '';
-  for (const v of wholeVerses) {
-    let cleanText = v.text;
-    if (isPoetry) {
-      cleanText = formatPoeticVerse(cleanText);
+function buildPassageHtml(wholeVerses, targetVerse, partialVerseObj = null, isPoetry = false, slideFormat = null, bookId = null, chapter = null) {
+  let format = slideFormat;
+  if (!format) {
+    if (typeof isPoetry === 'string') {
+      format = isPoetry;
+    } else {
+      format = isPoetry ? 'poetry' : 'prose';
     }
+  }
+
+  let html = '';
+  for (let i = 0; i < wholeVerses.length; i++) {
+    const v = wholeVerses[i];
+    let cleanText = v.text;
     const isTarget = v.verse === targetVerse;
+    let endsWithPoetry = false;
+
+    if (format === 'poetry') {
+      cleanText = formatPoeticVerse(cleanText);
+    } else if (format === 'mixed' || isEmbeddedPoetryVerse(bookId, chapter, v.verse, cleanText)) {
+      const formatted = detectAndFormatEmbeddedPoetry(cleanText, v.verse, bookId, chapter);
+      cleanText = formatted.text;
+      endsWithPoetry = formatted.endsWithPoetry;
+    }
+
     const content = isTarget
       ? `<span class="highlight"><sup>${v.verse}</sup>${cleanText}</span>`
       : `<span><sup>${v.verse}</sup>${cleanText}</span>`;
 
-    if (isPoetry) {
+    const hasNext = (i < wholeVerses.length - 1) || (!!partialVerseObj);
+
+    if (format === 'poetry') {
+      html += `${content}<br />`;
+    } else if (endsWithPoetry && hasNext) {
       html += `${content}<br />`;
     } else {
       html += `${content} `;
@@ -801,10 +951,16 @@ function buildPassageHtml(wholeVerses, targetVerse, partialVerseObj = null, isPo
 
   if (partialVerseObj) {
     let cleanText = partialVerseObj.text;
-    const content = `<span><sup>${partialVerseObj.verse}</sup>${cleanText}</span>`;
-    if (isPoetry) {
+    if (format === 'poetry') {
+      const content = `<span><sup>${partialVerseObj.verse}</sup>${cleanText}</span>`;
       html += `${content}<br />`;
+    } else if (format === 'mixed' || isEmbeddedPoetryVerse(bookId, chapter, partialVerseObj.verse, cleanText)) {
+      const formatted = detectAndFormatEmbeddedPoetry(cleanText, partialVerseObj.verse, bookId, chapter);
+      cleanText = formatted.text;
+      const content = `<span><sup>${partialVerseObj.verse}</sup>${cleanText}</span>`;
+      html += `${content}`;
     } else {
+      const content = `<span><sup>${partialVerseObj.verse}</sup>${cleanText}</span>`;
       html += `${content}`;
     }
   }
@@ -813,7 +969,7 @@ function buildPassageHtml(wholeVerses, targetVerse, partialVerseObj = null, isPo
 }
 
 // Compilation helper for Bible Passage HTML with a specific block range
-function compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry = false) {
+function compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry = false, slideFormat = null, bookId = null, chapter = null) {
   const wholeVerses = [];
   for (let v = start; v <= end; v++) {
     const vObj = chapterData.find(x => x.verse === v);
@@ -821,21 +977,24 @@ function compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoet
       wholeVerses.push({ verse: v, text: vObj.text.trim() });
     }
   }
-  return buildPassageHtml(wholeVerses, targetVerse, null, isPoetry);
+  return buildPassageHtml(wholeVerses, targetVerse, null, isPoetry, slideFormat, bookId, chapter);
 }
 
 // Compilation helper for Bible Passage HTML
-function compilePassageHtml(chapterData, targetVerse, contextSize, isPoetry = false) {
+function compilePassageHtml(chapterData, targetVerse, contextSize, isPoetry = false, slideFormat = null, bookId = null, chapter = null) {
   const start = Math.max(1, targetVerse - contextSize);
   const end = Math.min(chapterData.length, targetVerse + contextSize);
-  return compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry);
+  return compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry, slideFormat, bookId, chapter);
 }
 
 // Fill block to target lines (default 9 lines) starting on startVerse (always a whole verse)
 // Partial verses are strictly at the end of the text block
-function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = false, targetLines = 9) {
+function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = false, targetLines = 9, slideFormat = null, bookId = null, chapter = null) {
   const startObj = chapterData.find(v => v.verse === startVerse);
   if (!startObj) return null;
+
+  const format = slideFormat || (typeof isPoetry === 'string' ? isPoetry : (isPoetry ? 'poetry' : 'prose'));
+  const measureIsPoetry = (format === 'poetry');
 
   // Step 1: Collect whole verses starting from startVerse as long as line count <= targetLines
   const wholeVerses = [];
@@ -846,8 +1005,8 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
     if (!vObj) break;
 
     const candidateWholeVerses = [...wholeVerses, { verse: v, text: vObj.text.trim() }];
-    const testHtml = preventOrphans(buildPassageHtml(candidateWholeVerses, targetVerse, null, isPoetry));
-    const measuredLines = measureLines(testHtml, isPoetry);
+    const testHtml = preventOrphans(buildPassageHtml(candidateWholeVerses, targetVerse, null, measureIsPoetry, format, bookId, chapter));
+    const measuredLines = measureLines(testHtml, measureIsPoetry);
 
     if (measuredLines <= targetLines) {
       wholeVerses.push({ verse: v, text: vObj.text.trim() });
@@ -862,8 +1021,8 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
   }
 
   // Step 2: Check current line count with whole verses
-  const baseHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, isPoetry));
-  let currentLines = measureLines(baseHtml, isPoetry);
+  const baseHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, measureIsPoetry, format, bookId, chapter));
+  let currentLines = measureLines(baseHtml, measureIsPoetry);
 
   // Step 3: If currentLines < targetLines, slice words from next verse to fill out line 9
   // Partial verses are strictly at the end of the block and cannot be the target verse itself
@@ -872,7 +1031,7 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
   const nextVerseObj = chapterData.find(x => x.verse === nextVerseNum);
 
   if (currentLines < targetLines && nextVerseObj && nextVerseNum !== targetVerse) {
-    if (isPoetry) {
+    if (format === 'poetry') {
       const formatted = formatPoeticVerse(nextVerseObj.text.trim());
       const couplets = formatted.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
       let bestCoupletText = '';
@@ -880,8 +1039,8 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
       for (let c = 0; c < couplets.length; c++) {
         const testCoupletPart = couplets.slice(0, c + 1).join('<br />');
         const testCandidate = { verse: nextVerseNum, text: testCoupletPart, isPartial: true };
-        const testHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, testCandidate, isPoetry));
-        const lines = measureLines(testHtml, isPoetry);
+        const testHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, testCandidate, measureIsPoetry, format, bookId, chapter));
+        const lines = measureLines(testHtml, measureIsPoetry);
 
         if (lines <= targetLines) {
           bestCoupletText = testCoupletPart;
@@ -895,7 +1054,7 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
         partialVerseObj = { verse: nextVerseNum, text: bestCoupletText, isPartial: true };
       }
     } else {
-      // Prose: binary search words to fill line 9 completely
+      // Prose and Mixed: binary search words to fill line 9 completely
       const cleanNextText = nextVerseObj.text.trim();
       const words = cleanNextText.split(/\s+/).filter(Boolean);
 
@@ -907,8 +1066,8 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
         const mid = Math.floor((low + high) / 2);
         const testWordPart = words.slice(0, mid).join(' ');
         const testCandidate = { verse: nextVerseNum, text: testWordPart, isPartial: true };
-        const testHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, testCandidate, isPoetry));
-        const lines = measureLines(testHtml, isPoetry);
+        const testHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, testCandidate, measureIsPoetry, format, bookId, chapter));
+        const lines = measureLines(testHtml, measureIsPoetry);
 
         if (lines <= targetLines) {
           bestWordCount = mid;
@@ -926,8 +1085,8 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
     }
   }
 
-  let finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, isPoetry));
-  let finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+  let finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, measureIsPoetry, format, bookId, chapter));
+  let finalLines = measureLines(finalHtml, measureIsPoetry, 'scripture');
 
   // Hard safety guard: Strictly enforce max lines (targetLines)
   // 1. If partial verse pushed line count above targetLines, trim words from partial verse
@@ -939,8 +1098,8 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
     } else {
       partialVerseObj = null;
     }
-    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, isPoetry));
-    finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, partialVerseObj, measureIsPoetry, format, bookId, chapter));
+    finalLines = measureLines(finalHtml, measureIsPoetry, 'scripture');
   }
 
   // 2. If whole verses (other than target verse) still push line count above targetLines, drop ending verses
@@ -949,15 +1108,15 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
     if (lastV.verse === targetVerse) break;
     wholeVerses.pop();
     currentEndVerse = wholeVerses[wholeVerses.length - 1].verse;
-    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, isPoetry));
-    finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, measureIsPoetry, format, bookId, chapter));
+    finalLines = measureLines(finalHtml, measureIsPoetry, 'scripture');
   }
 
   // 3. If dropping ending verses still left it above targetLines and starting verse is not targetVerse, drop leading verses
   while (finalLines > targetLines && wholeVerses.length > 1 && wholeVerses[0].verse !== targetVerse) {
     wholeVerses.shift();
-    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, isPoetry));
-    finalLines = measureLines(finalHtml, isPoetry, 'scripture');
+    finalHtml = preventOrphans(buildPassageHtml(wholeVerses, targetVerse, null, measureIsPoetry, format, bookId, chapter));
+    finalLines = measureLines(finalHtml, measureIsPoetry, 'scripture');
   }
 
   return {
@@ -1000,13 +1159,13 @@ function splitLongVerse(verseNumber, verseText, maxLines, isPoetry = false) {
   return slides;
 }
 
-function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLines, isPoetry = false) {
+function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLines, isPoetry = false, slideFormat = null, bookId = null, chapter = null) {
   let bestStart = targetVerse;
   if (requestedContext > 0) {
     for (let b = requestedContext; b >= 1; b--) {
       const candStart = targetVerse - b;
       if (candStart >= 1) {
-        const testBlock = fillBlockToExactLines(chapterData, targetVerse, candStart, isPoetry, maxLines);
+        const testBlock = fillBlockToExactLines(chapterData, targetVerse, candStart, isPoetry, maxLines, slideFormat, bookId, chapter);
         if (testBlock && testBlock.fullVerses.includes(targetVerse)) {
           bestStart = candStart;
           return testBlock;
@@ -1014,7 +1173,7 @@ function findBestBlockForVerse(chapterData, targetVerse, requestedContext, maxLi
       }
     }
   }
-  return fillBlockToExactLines(chapterData, targetVerse, bestStart, isPoetry, maxLines);
+  return fillBlockToExactLines(chapterData, targetVerse, bestStart, isPoetry, maxLines, slideFormat, bookId, chapter);
 }
 
 // Helper to coalesce contiguous scripture requests targeting same book & chapter
@@ -1105,8 +1264,10 @@ async function buildSlides(parsedRequests) {
         continue;
       }
       
-      const isPoetry = isPoeticBook(bookId, bookName);
-      const slideFormat = isPoetry ? 'poetry' : 'prose';
+      const isPoetic = isPoeticBook(bookId, bookName);
+      const hasEmbeddedPoetry = !isPoetic && chapterData.some(v => isEmbeddedPoetryVerse(bookId, chapter, v.verse, v.text));
+      const slideFormat = isPoetic ? 'poetry' : (hasEmbeddedPoetry ? 'mixed' : 'prose');
+      const isPoetry = (slideFormat === 'poetry');
       const requestedContext = parseInt(contextWindowEl.value) || 0;
 
       // Stationary Sequence Generator:
@@ -1125,7 +1286,12 @@ async function buildSlides(parsedRequests) {
         }
 
         // Test if single target verse itself exceeds max lines
-        const formattedSingle = isPoetry ? formatPoeticVerse(targetVerseObj.text.trim()) : targetVerseObj.text.trim();
+        let formattedSingle = targetVerseObj.text.trim();
+        if (isPoetry) {
+          formattedSingle = formatPoeticVerse(formattedSingle);
+        } else if (slideFormat === 'mixed' || isEmbeddedPoetryVerse(bookId, chapter, targetVerse, formattedSingle)) {
+          formattedSingle = detectAndFormatEmbeddedPoetry(formattedSingle, targetVerse, bookId, chapter).text;
+        }
         const singleTestHtml = `<span class="highlight"><sup>${targetVerse}</sup>${formattedSingle}</span>`;
         if (measureLines(singleTestHtml, isPoetry) > maxLines) {
           // Split oversized single verse across slides
@@ -1189,7 +1355,7 @@ async function buildSlides(parsedRequests) {
                 for (let b = requestedContext; b >= 1; b--) {
                   const candidateStart = targetVerse - b;
                   if (candidateStart >= 1) {
-                    const testBlock = fillBlockToExactLines(chapterData, targetVerse, candidateStart, isPoetry, maxLines);
+                    const testBlock = fillBlockToExactLines(chapterData, targetVerse, candidateStart, isPoetry, maxLines, slideFormat, bookId, chapter);
                     if (testBlock && testBlock.fullVerses.includes(targetVerse)) {
                       bestStart = candidateStart;
                       break;
@@ -1207,7 +1373,7 @@ async function buildSlides(parsedRequests) {
             for (let b = 2; b >= 1; b--) {
               const candidateStart = targetVerse - b;
               if (candidateStart >= verses[0]) {
-                const testBlock = fillBlockToExactLines(chapterData, targetVerse, candidateStart, isPoetry, maxLines);
+                const testBlock = fillBlockToExactLines(chapterData, targetVerse, candidateStart, isPoetry, maxLines, slideFormat, bookId, chapter);
                 if (testBlock && testBlock.fullVerses.includes(targetVerse)) {
                   bestStart = candidateStart;
                   foundStart = true;
@@ -1221,15 +1387,15 @@ async function buildSlides(parsedRequests) {
           }
 
           // Build the new stationary block
-          currentBlock = fillBlockToExactLines(chapterData, targetVerse, bestStart, isPoetry, maxLines);
+          currentBlock = fillBlockToExactLines(chapterData, targetVerse, bestStart, isPoetry, maxLines, slideFormat, bookId, chapter);
           if (!currentBlock || !currentBlock.fullVerses.includes(targetVerse)) {
             // Fallback: start at targetVerse
-            currentBlock = fillBlockToExactLines(chapterData, targetVerse, targetVerse, isPoetry, maxLines);
+            currentBlock = fillBlockToExactLines(chapterData, targetVerse, targetVerse, isPoetry, maxLines, slideFormat, bookId, chapter);
           }
         }
 
         // Generate slide using currentBlock with highlight on targetVerse
-        const slideTextHtml = buildPassageHtml(currentBlock.wholeVerses, targetVerse, currentBlock.partialVerseObj, isPoetry);
+        const slideTextHtml = buildPassageHtml(currentBlock.wholeVerses, targetVerse, currentBlock.partialVerseObj, isPoetry, slideFormat, bookId, chapter);
         const finalSlideText = preventOrphans(slideTextHtml);
 
         slides.push({
@@ -1319,7 +1485,7 @@ function renderSlideDeck() {
     slideCanvas.className = 'slide-canvas';
     
     if (slide.type === 'scripture') {
-      const poetryClass = (slide.format === 'poetry') ? 'format-poetry' : '';
+      const poetryClass = (slide.format === 'poetry') ? 'format-poetry' : (slide.format === 'mixed' ? 'format-mixed' : '');
       slideCanvas.innerHTML = `
         <div class="slide-left-column">
           <div class="slide-ref-book">${slide.refBook}</div>
@@ -1530,7 +1696,7 @@ function removeUpperContext() {
     editorBodyEl.innerHTML = slide.text;
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
-    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
     const maxLines = getMaxLines(slide.type);
     const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
@@ -1619,7 +1785,7 @@ function removeLowerContext() {
     editorBodyEl.innerHTML = slide.text;
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
 
-    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
     const maxLines = getMaxLines(slide.type);
     const lines = measureLines(slide.text, isPoetry, slide.type);
     activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
@@ -1673,14 +1839,19 @@ async function addUpperContext() {
       return;
     }
 
-    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
     let cleanText = verseObj.text.trim();
-    if (isPoetry) {
+    let endsWithPoetry = false;
+    if (slide.format === 'poetry') {
       cleanText = formatPoeticVerse(cleanText);
+    } else if (slide.format === 'mixed' || isEmbeddedPoetryVerse(slide.bookId, slide.chapter, targetUpperVerse, cleanText)) {
+      const formatted = detectAndFormatEmbeddedPoetry(cleanText, targetUpperVerse, slide.bookId, slide.chapter);
+      cleanText = formatted.text;
+      endsWithPoetry = formatted.endsWithPoetry;
     }
 
     const upperHtml = `<span><sup>${targetUpperVerse}</sup>${cleanText}</span>`;
-    if (isPoetry) {
+    if (slide.format === 'poetry' || endsWithPoetry) {
       slide.text = preventOrphans(`${upperHtml}<br />${slide.text}`);
     } else {
       slide.text = preventOrphans(`${upperHtml} ${slide.text}`);
@@ -1745,14 +1916,17 @@ async function addLowerContext() {
       return;
     }
 
-    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
     let cleanText = verseObj.text.trim();
-    if (isPoetry) {
+    if (slide.format === 'poetry') {
       cleanText = formatPoeticVerse(cleanText);
+    } else if (slide.format === 'mixed' || isEmbeddedPoetryVerse(slide.bookId, slide.chapter, targetLowerVerse, cleanText)) {
+      const formatted = detectAndFormatEmbeddedPoetry(cleanText, targetLowerVerse, slide.bookId, slide.chapter);
+      cleanText = formatted.text;
     }
 
     const lowerHtml = `<span><sup>${targetLowerVerse}</sup>${cleanText}</span>`;
-    if (isPoetry) {
+    if (slide.format === 'poetry') {
       slide.text = preventOrphans(`${slide.text}<br />${lowerHtml}`);
     } else {
       slide.text = preventOrphans(`${slide.text} ${lowerHtml}`);
@@ -1810,12 +1984,16 @@ function renderActiveSlide() {
     editorVerseEl.textContent = slide.refVerse;
     editorBodyEl.innerHTML = slide.text;
 
-    const isPoetic = slide.format ? (slide.format === 'poetry') : isPoeticBook(slide.bookId, slide.bookName);
-    slide.format = isPoetic ? 'poetry' : 'prose';
+    if (!slide.format) {
+      const isPoetic = isPoeticBook(slide.bookId, slide.bookName);
+      slide.format = isPoetic ? 'poetry' : (hasEmbeddedPoetryInSlide(slide) ? 'mixed' : 'prose');
+    }
+    editorBodyEl.classList.remove('format-poetry');
+    editorBodyEl.classList.remove('format-mixed');
     if (slide.format === 'poetry') {
       editorBodyEl.classList.add('format-poetry');
-    } else {
-      editorBodyEl.classList.remove('format-poetry');
+    } else if (slide.format === 'mixed') {
+      editorBodyEl.classList.add('format-mixed');
     }
     
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
@@ -1844,6 +2022,7 @@ function renderActiveSlide() {
     editorTitleEl.style.display = 'none';
     editorQuoteContainer.style.display = 'flex';
     editorBodyEl.classList.remove('format-poetry');
+    editorBodyEl.classList.remove('format-mixed');
     
     editorQuoteTextEl.innerHTML = `“${stripOuterQuotes(slide.text)}”`;
     editorQuoteAuthorEl.textContent = slide.author;
@@ -1869,6 +2048,7 @@ function renderActiveSlide() {
     editorTitleEl.style.display = 'flex';
     editorQuoteContainer.style.display = 'none';
     editorBodyEl.classList.remove('format-poetry');
+    editorBodyEl.classList.remove('format-mixed');
     
     editorTitleEl.innerHTML = slide.text;
     activeSlideTextarea.value = formatTextForTextarea(slide.text);
@@ -1888,7 +2068,7 @@ function renderActiveSlide() {
   
   // Calculate and display line count
   const maxLines = getMaxLines(slide.type);
-  const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+  const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
   const lines = measureLines(slide.text, isPoetry, slide.type);
   activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
   
@@ -2074,7 +2254,7 @@ activeSlideTextarea.addEventListener('input', (e) => {
   
   // Re-verify line limits
   const maxLines = getMaxLines(slide.type);
-  const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+  const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
   const lines = measureLines(slide.text, isPoetry, slide.type);
   activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
   if (lines > maxLines) {
@@ -2095,7 +2275,7 @@ activeSlideTextarea.addEventListener('input', (e) => {
 slideCanvasPreview.addEventListener('input', (e) => {
   const target = e.target;
   const slide = slidesData[activeSlideIndex];
-  const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+  const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
   
   if (target.classList.contains('slide-ref-book')) {
     slide.refBook = target.textContent.toUpperCase();
@@ -2209,8 +2389,12 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
   try {
     const chapterData = await fetchChapter(slide.bookId, slide.chapter, newTranslation);
     if (chapterData) {
+      const isPoetic = isPoeticBook(slide.bookId, slide.bookName);
+      const hasEmbeddedPoetry = !isPoetic && chapterData.some(v => isEmbeddedPoetryVerse(slide.bookId, slide.chapter, v.verse, v.text));
+      const slideFormat = slide.format || (isPoetic ? 'poetry' : (hasEmbeddedPoetry ? 'mixed' : 'prose'));
+      slide.format = slideFormat;
+      const isPoetry = (slideFormat === 'poetry');
       const maxLines = getMaxLines(slide.type);
-      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
       const requestedContext = parseInt(contextWindowEl.value) || 0;
       const best = findBestBlockForVerse(
         chapterData,
@@ -2218,8 +2402,9 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
         requestedContext,
         maxLines,
         isPoetry,
-        false,
-        false
+        slideFormat,
+        slide.bookId,
+        slide.chapter
       );
 
       if (best) {
@@ -2229,7 +2414,12 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
       } else {
         // Fallback to target verse only
         const targetObj = chapterData.find(v => v.verse === slide.targetVerse);
-        const singleText = targetObj ? (isPoetry ? formatPoeticVerse(targetObj.text.trim()) : targetObj.text.trim()) : '';
+        let singleText = targetObj ? targetObj.text.trim() : '';
+        if (isPoetry) {
+          singleText = formatPoeticVerse(singleText);
+        } else if (slideFormat === 'mixed' || isEmbeddedPoetryVerse(slide.bookId, slide.chapter, slide.targetVerse, singleText)) {
+          singleText = detectAndFormatEmbeddedPoetry(singleText, slide.targetVerse, slide.bookId, slide.chapter).text;
+        }
         const fallbackHtml = `<span class="highlight"><sup>${slide.targetVerse}</sup>${singleText}</span>`;
         slide.text = preventOrphans(fallbackHtml);
         slide.blockStart = slide.targetVerse;
@@ -2239,6 +2429,9 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
       // Update UI
       editorBodyEl.innerHTML = slide.text;
       activeSlideTextarea.value = formatTextForTextarea(slide.text);
+      if (activeSlideFormatEl) {
+        activeSlideFormatEl.value = slide.format;
+      }
       
       // Re-verify line limits
       const lines = measureLines(slide.text, isPoetry, slide.type);
@@ -2274,6 +2467,9 @@ if (activeSlideFormatEl) {
     const newFormat = e.target.value;
     slide.format = newFormat;
     
+    editorBodyEl.classList.remove('format-poetry');
+    editorBodyEl.classList.remove('format-mixed');
+
     if (newFormat === 'poetry') {
       editorBodyEl.classList.add('format-poetry');
       // If the text does not contain any <br>, auto-format it with couplet breaks
@@ -2282,8 +2478,13 @@ if (activeSlideFormatEl) {
         editorBodyEl.innerHTML = slide.text;
         activeSlideTextarea.value = formatTextForTextarea(slide.text);
       }
-    } else {
-      editorBodyEl.classList.remove('format-poetry');
+    } else if (newFormat === 'mixed') {
+      editorBodyEl.classList.add('format-mixed');
+      if (!slide.text.includes('poetry-line')) {
+        slide.text = formatEmbeddedPoetryInHtml(slide.text, slide.bookId, slide.chapter);
+        editorBodyEl.innerHTML = slide.text;
+        activeSlideTextarea.value = formatTextForTextarea(slide.text);
+      }
     }
     
     const isPoetry = slide.format === 'poetry';
@@ -2480,7 +2681,7 @@ function toggleSelectionEmphasis() {
 
       activeSlideTextarea.value = formatTextForTextarea(slide.text);
       const maxLines = getMaxLines(slide.type);
-      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+      const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
       const lines = measureLines(slide.text, isPoetry, slide.type);
       activeSlideLinesEl.textContent = `${lines} / ${maxLines}`;
       if (lines > maxLines) {
@@ -2753,8 +2954,9 @@ async function renderSlideToCanvas(slide, canvas) {
 
   // Set innerHTML based on slide type and active theme
   if (slide.type === 'scripture') {
-    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName));
+    const isPoetry = slide.format === 'poetry' || (slide.type === 'scripture' && isPoeticBook(slide.bookId, slide.bookName) && slide.format !== 'prose' && slide.format !== 'mixed');
     const textAlign = isPoetry ? 'left' : 'justify';
+    const formatClass = (slide.format === 'poetry') ? 'format-poetry' : (slide.format === 'mixed' ? 'format-mixed' : '');
     const fontSize = getScriptureFontSize();
     slideDiv.innerHTML = `
       <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
@@ -2763,7 +2965,7 @@ async function renderSlideToCanvas(slide, canvas) {
       </div>
       <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: ${dividerColor};"></div>
       <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
-        <div class="slide-text-body" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${cleanText}</div>
+        <div class="slide-text-body ${formatClass}" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${cleanText}</div>
       </div>
     `;
   } else if (slide.type === 'quote') {
@@ -2798,6 +3000,17 @@ async function renderSlideToCanvas(slide, canvas) {
       -webkit-font-smoothing: antialiased !important;
       -moz-osx-font-smoothing: grayscale !important;
       text-rendering: geometricPrecision !important;
+    }
+    .slide-text-body.format-poetry {
+      text-align: left !important;
+    }
+    .slide-text-body.format-mixed {
+      text-align: justify !important;
+    }
+    .slide-text-body .poetry-line {
+      display: inline-block !important;
+      text-align: left !important;
+      padding-left: 0 !important;
     }
     .slide-text-body span.highlight {
       color: ${textColor} !important;
@@ -3181,7 +3394,7 @@ function openProofSheet() {
   let html = '';
   slidesData.forEach((slide, idx) => {
     if (slide.type === 'scripture') {
-      const poetryClass = (slide.format === 'poetry') ? 'format-poetry' : '';
+      const poetryClass = (slide.format === 'poetry') ? 'format-poetry' : (slide.format === 'mixed' ? 'format-mixed' : '');
       html += `
         <div class="proof-slide-item">
           <div class="proof-slide-header">
