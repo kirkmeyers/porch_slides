@@ -182,7 +182,7 @@ body {
   border-bottom: 1px solid var(--border-color);
   padding: 0 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   z-index: 10;
 }
@@ -198,17 +198,22 @@ body {
   height: 32px;
   color: #ffffff;
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.25));
+  flex-shrink: 0;
+}
+
+.header-text {
+  display: flex;
+  align-items: center;
 }
 
 .header-text h1 {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 600;
   letter-spacing: -0.02em;
-}
-
-.header-text p {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+  line-height: 1;
+  margin: 0;
+  display: flex;
+  align-items: center;
 }
 
 /* Core Split Workspace */
