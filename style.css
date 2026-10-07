@@ -741,16 +741,23 @@ input[type="range"] {
   max-width: 300px;
 }
 
-/* Checkerboard layout for transparency preview */
-.checkerboard {
-  background-color: #0a0a0a;
+/* Slide Preview Background (Solid pitch black by default for high-contrast readability, Checkerboard when toggled) */
+.checkerboard,
+#slide-canvas-preview.checkerboard {
+  background-color: #000000;
+  background-image: none;
+}
+
+body.show-checkerboard .checkerboard,
+body.show-checkerboard #slide-canvas-preview.checkerboard {
+  background-color: #0a0b0e;
   background-image: 
-    linear-gradient(45deg, #111111 25%, transparent 25%), 
-    linear-gradient(-45deg, #111111 25%, transparent 25%), 
-    linear-gradient(45deg, transparent 75%, #111111 75%), 
-    linear-gradient(-45deg, transparent 75%, #111111 75%);
-  background-size: 40px 40px;
-  background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
+    linear-gradient(45deg, #161820 25%, transparent 25%), 
+    linear-gradient(-45deg, #161820 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #161820 75%), 
+    linear-gradient(-45deg, transparent 75%, #161820 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
 }
 
 /* Visual wrapper for grid card */
@@ -812,12 +819,13 @@ input[type="range"] {
   top: 0;
   left: 0;
   transform-origin: top left;
-  transform: scale(var(--grid-scale, 0.0833333));
+  transform: scale(var(--grid-scale, 0.0833333)) translateZ(0);
   pointer-events: none; /* Interact through the card wrapper instead */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
   image-rendering: -webkit-optimize-contrast;
+  backface-visibility: hidden;
 }
 
 /* Remove slide canvas double border, box-shadow and background inside grid cards */
@@ -1159,19 +1167,26 @@ sup,
 /* ==========================================================================
    Lover's Series Theme (Black Text, Exact ProPresenter Coordinates)
    ========================================================================== */
-.theme-lovers-series .checkerboard {
-  background-color: #f4f4f7;
+.theme-lovers-series .checkerboard,
+.theme-lovers-series #slide-canvas-preview.checkerboard {
+  background-color: #ffffff;
+  background-image: none;
+}
+
+body.theme-lovers-series.show-checkerboard .checkerboard,
+body.theme-lovers-series.show-checkerboard #slide-canvas-preview.checkerboard {
+  background-color: #ffffff;
   background-image: 
-    linear-gradient(45deg, #e4e4e9 25%, transparent 25%), 
-    linear-gradient(-45deg, #e4e4e9 25%, transparent 25%), 
-    linear-gradient(45deg, transparent 75%, #e4e4e9 75%), 
-    linear-gradient(-45deg, transparent 75%, #e4e4e9 75%);
-  background-size: 40px 40px;
-  background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
+    linear-gradient(45deg, #eaedf2 25%, transparent 25%), 
+    linear-gradient(-45deg, #eaedf2 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #eaedf2 75%), 
+    linear-gradient(-45deg, transparent 75%, #eaedf2 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
 }
 
 .theme-lovers-series .grid-slide-card {
-  background-color: #f8f9fa;
+  background-color: #ffffff;
   border-color: rgba(0, 0, 0, 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -1502,6 +1517,12 @@ textarea#active-slide-textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.btn-header-action.active {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--text-primary);
 }
 
 .btn-header-action:disabled {

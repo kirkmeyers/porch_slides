@@ -153,6 +153,8 @@ const DOWNLOAD_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox=
 const PROPRESENTER_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
 const LIGHTNING_ICON_SVG = `<svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
 const SPINNER_ICON_SVG = `<svg class="btn-icon btn-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`;
+const BG_SOLID_ICON_SVG = `<svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+const BG_CHECKER_ICON_SVG = `<svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="9" height="9"/><rect x="12" y="12" width="9" height="9"/><rect x="12" y="3" width="9" height="9" fill-opacity="0.25"/><rect x="3" y="12" width="9" height="9" fill-opacity="0.25"/></svg>`;
 
 const toggleGridEl = document.getElementById('toggle-grid');
 const toggleEditorEl = document.getElementById('toggle-editor');
@@ -192,6 +194,46 @@ const lineCounterMeasurement = document.getElementById('line-counter-measurement
 
 const btnShareDraft = document.getElementById('btn-share-draft');
 const btnProofSheet = document.getElementById('btn-proof-sheet');
+const btnToggleBg = document.getElementById('btn-toggle-bg');
+const btnToggleBgText = document.getElementById('btn-toggle-bg-text');
+const btnToggleBgIcon = document.getElementById('btn-toggle-bg-icon');
+
+function updateBgModeUI(mode) {
+  const isCheckerboard = mode === 'checkerboard';
+  if (isCheckerboard) {
+    document.body.classList.add('show-checkerboard');
+    if (btnToggleBgText) btnToggleBgText.textContent = 'Checkerboard';
+    if (btnToggleBg) {
+      btnToggleBg.title = 'Current background: Checkerboard. Click to switch to Solid background.';
+      btnToggleBg.classList.add('active');
+    }
+    if (btnToggleBgIcon) {
+      btnToggleBgIcon.innerHTML = BG_CHECKER_ICON_SVG;
+    }
+  } else {
+    document.body.classList.remove('show-checkerboard');
+    if (btnToggleBgText) btnToggleBgText.textContent = 'Solid BG';
+    if (btnToggleBg) {
+      btnToggleBg.title = 'Current background: Solid. Click to switch to Transparency Checkerboard.';
+      btnToggleBg.classList.remove('active');
+    }
+    if (btnToggleBgIcon) {
+      btnToggleBgIcon.innerHTML = BG_SOLID_ICON_SVG;
+    }
+  }
+}
+
+if (btnToggleBg) {
+  const savedBgMode = localStorage.getItem('porch_bg_mode') || 'solid';
+  updateBgModeUI(savedBgMode);
+  btnToggleBg.addEventListener('click', () => {
+    const isCurrentlyChecker = document.body.classList.contains('show-checkerboard');
+    const newMode = isCurrentlyChecker ? 'solid' : 'checkerboard';
+    localStorage.setItem('porch_bg_mode', newMode);
+    updateBgModeUI(newMode);
+  });
+}
+
 const reviewBanner = document.getElementById('review-banner');
 const btnCopyReviewLink = document.getElementById('btn-copy-review-link');
 const btnDismissReviewBanner = document.getElementById('btn-dismiss-review-banner');
