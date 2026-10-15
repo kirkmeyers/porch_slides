@@ -830,7 +830,8 @@ body.show-checkerboard #slide-canvas-preview.checkerboard {
 
 /* Remove slide canvas double border, box-shadow and background inside grid cards */
 .grid-slide-card .slide-canvas,
-.theme-lovers-series .grid-slide-card .slide-canvas {
+.theme-lovers-series .grid-slide-card .slide-canvas,
+.theme-inner-life .grid-slide-card .slide-canvas {
   box-shadow: none !important;
   border: none !important;
   background-color: transparent !important;
@@ -1032,12 +1033,14 @@ body.show-checkerboard #slide-canvas-preview.checkerboard {
 }
 
 .slide-text-body.format-poetry,
-.theme-lovers-series .slide-text-body.format-poetry {
+.theme-lovers-series .slide-text-body.format-poetry,
+.theme-inner-life .slide-text-body.format-poetry {
   text-align: left !important;
 }
 
 .slide-text-body.format-mixed,
-.theme-lovers-series .slide-text-body.format-mixed {
+.theme-lovers-series .slide-text-body.format-mixed,
+.theme-inner-life .slide-text-body.format-mixed {
   text-align: justify;
 }
 
@@ -1262,6 +1265,236 @@ body.theme-lovers-series.show-checkerboard #slide-canvas-preview.checkerboard {
 .theme-lovers-series .slide-quote-text:has(span.highlight),
 .theme-lovers-series .slide-quote-text.has-highlight {
   color: rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================================================================
+   The Inner Life Theme (Black Text, Right-Aligned Ref, Exact 4K Coordinates)
+   ========================================================================== */
+.theme-inner-life .checkerboard,
+.theme-inner-life #slide-canvas-preview.checkerboard {
+  background-color: #ffffff;
+  background-image: none;
+}
+
+body.theme-inner-life.show-checkerboard .checkerboard,
+body.theme-inner-life.show-checkerboard #slide-canvas-preview.checkerboard {
+  background-color: #ffffff;
+  background-image: 
+    linear-gradient(45deg, #eaedf2 25%, transparent 25%), 
+    linear-gradient(-45deg, #eaedf2 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #eaedf2 75%), 
+    linear-gradient(-45deg, transparent 75%, #eaedf2 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+}
+
+.theme-inner-life .grid-slide-card {
+  background-color: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.theme-inner-life .grid-slide-card:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.theme-inner-life .grid-slide-info {
+  background: linear-gradient(transparent, rgba(235, 236, 240, 0.95));
+}
+
+.theme-inner-life .grid-slide-num {
+  color: #111827;
+}
+
+.theme-inner-life .grid-slide-label {
+  color: #4b5563;
+}
+
+.theme-inner-life .slide-canvas {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* The Inner Life: Left Scripture Reference Column (Right-Aligned against Divider) */
+.theme-inner-life .slide-left-column {
+  left: 330px;
+  top: 690px;
+  width: 821px;
+  height: 371px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.theme-inner-life .slide-ref-book {
+  color: #000000;
+  text-align: right;
+  min-width: 0;
+  width: 100%;
+}
+
+.theme-inner-life .slide-ref-verse {
+  color: #000000;
+  text-align: right;
+  min-width: 0;
+  width: 100%;
+}
+
+/* The Inner Life: Vertical Divider (left: 1250px) */
+.theme-inner-life .slide-divider {
+  left: 1250px;
+  top: 469px;
+  width: 8px;
+  height: 818px;
+  background-color: #000000;
+}
+
+/* The Inner Life: Right Scripture Text Column (left: 1358px) */
+.theme-inner-life .slide-right-column {
+  left: 1358px;
+  top: 424px;
+  width: 2111px;
+  height: 908px;
+}
+
+.theme-inner-life .slide-text-body {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.theme-inner-life .slide-text-body span.highlight {
+  color: #000000;
+  font-weight: normal;
+}
+
+/* The Inner Life: Sermon Point (Centered, 2880x1100, Sentence Case, Normal Tracking) */
+.theme-inner-life .slide-center-title {
+  left: 480px;
+  top: 326px;
+  width: 2880px;
+  height: 1100px;
+  color: #000000;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 96px;
+  line-height: 1.5;
+}
+
+/* The Inner Life: Quote Slide (2615x585 at top: 518px, author at top: 596px / 1114px) */
+.theme-inner-life .slide-quote-container {
+  left: 612px;
+  top: 518px;
+  width: 2615px;
+  height: 585px;
+}
+
+.theme-inner-life .slide-quote-text {
+  color: #000000;
+  font-size: 82px;
+  line-height: 1.18;
+}
+
+.theme-inner-life .slide-quote-author {
+  top: 596px;
+  width: 1822px;
+  height: 105px;
+  color: #000000;
+  font-size: 96px;
+}
+
+.theme-inner-life .slide-center-title span.highlight,
+.theme-inner-life .slide-quote-text span.highlight {
+  color: #000000 !important;
+  opacity: 1.0 !important;
+}
+
+.theme-inner-life .slide-center-title:has(span.highlight),
+.theme-inner-life .slide-center-title.has-highlight,
+.theme-inner-life .slide-quote-text:has(span.highlight),
+.theme-inner-life .slide-quote-text.has-highlight {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+/* Reverential Casing Warning Badges and Banners */
+.grid-slide-casing-flag {
+  background-color: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  color: #fbbf24;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.theme-lovers-series .grid-slide-casing-flag,
+.theme-inner-life .grid-slide-casing-flag {
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #b45309;
+}
+
+.casing-warning-banner {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.casing-warning-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #fbbf24;
+}
+
+.casing-warning-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.casing-warning-text {
+  flex: 1;
+}
+
+.casing-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-warning-action {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: 4px;
+  background-color: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fef3c7;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.btn-warning-action:hover {
+  background-color: rgba(245, 158, 11, 0.35);
+  border-color: rgba(245, 158, 11, 0.6);
+}
+
+.btn-warning-action.btn-dismiss {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #d1fae5;
+}
+
+.btn-warning-action.btn-dismiss:hover {
+  background-color: rgba(16, 185, 129, 0.35);
+  border-color: rgba(16, 185, 129, 0.6);
 }
 
 /* Editor Sidebar controls */

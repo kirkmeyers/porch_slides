@@ -244,6 +244,83 @@ const btnPrintProof = document.getElementById('btn-print-proof');
 const btnCloseProof = document.getElementById('btn-close-proof');
 const toastContainer = document.getElementById('toast-container');
 
+// Reverential Capitalization and Sentence Case Helper for Sermon Points
+const DIVINE_PROPER_NOUNS = new Set([
+  'god', "god's", "god’s", 'lord', "lord's", "lord’s", 'jesus', "jesus'", "jesus’", "jesus's", "jesus’s",
+  'christ', "christ's", "christ’s", 'father', "father's", "father’s", 'son', "son's", "son’s",
+  'creator', "creator's", "creator’s", 'almighty', 'savior', 'saviour', "savior's", "saviour's",
+  'messiah', "messiah's", "messiah’s", 'yahweh', 'jehovah', 'trinity',
+  'bible', 'scripture', 'scriptures', 'gospel', 'gospels'
+]);
+
+const REVERENTIAL_PRONOUNS = new Set([
+  'he', 'him', 'his', 'himself',
+  'you', 'your', 'yours', 'yourself',
+  'them', 'their', 'theirs'
+]);
+
+const ROMAN_NUMERALS = new Set(['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x']);
+
+function toSentenceCaseWithReverence(input) {
+  if (!input) return '';
+  const trimmed = input.trim();
+  
+  // Match tokens: words (including internal apostrophes/curly apostrophes) and non-words
+  const tokenRegex = /([A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*|[^A-Za-z0-9]+)/g;
+  const tokens = trimmed.match(tokenRegex) || [trimmed];
+  
+  let result = '';
+  let isStartOfSentence = true;
+  
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    const isWord = /^[A-Za-z0-9]/.test(token);
+    
+    if (isWord) {
+      const lower = token.toLowerCase();
+      
+      // Lookahead/lookbehind for Holy Spirit / Holy Ghost
+      let nextWord = '';
+      for (let j = i + 1; j < tokens.length; j++) {
+        if (/^[A-Za-z0-9]/.test(tokens[j])) {
+          nextWord = tokens[j].toLowerCase();
+          break;
+        }
+      }
+      let prevWord = '';
+      for (let j = i - 1; j >= 0; j--) {
+        if (/^[A-Za-z0-9]/.test(tokens[j])) {
+          prevWord = tokens[j].toLowerCase();
+          break;
+        }
+      }
+      
+      if (lower === 'holy' && (nextWord === 'spirit' || nextWord === 'ghost')) {
+        result += 'Holy';
+      } else if ((lower === 'spirit' || lower === 'ghost') && prevWord === 'holy') {
+        result += lower.charAt(0).toUpperCase() + lower.slice(1);
+      } else if (DIVINE_PROPER_NOUNS.has(lower)) {
+        result += lower.charAt(0).toUpperCase() + lower.slice(1);
+      } else if (REVERENTIAL_PRONOUNS.has(lower)) {
+        result += lower.charAt(0).toUpperCase() + lower.slice(1);
+      } else if (ROMAN_NUMERALS.has(lower)) {
+        result += lower.toUpperCase();
+      } else if (isStartOfSentence) {
+        result += lower.charAt(0).toUpperCase() + lower.slice(1);
+      } else {
+        result += lower;
+      }
+      isStartOfSentence = false;
+    } else {
+      result += token;
+      if (/[.!?:\n—–-]/.test(token)) {
+        isStartOfSentence = true;
+      }
+    }
+  }
+  return result;
+}
+
 // Poetic Books: Job (18), Psalms (19), Proverbs (20), Song of Solomon (22), Lamentations (25)
 const POETIC_BOOK_IDS = new Set([18, 19, 20, 22, 25]);
 
@@ -477,27 +554,57 @@ function calibrateLineHeight() {
 }
 
 function updateCalibrationForTheme() {
-  const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
+  const theme = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+  const isLovers = theme === 'lovers-series';
+  const isInnerLife = theme === 'inner-life';
   const lineLimitEl = document.getElementById('line-limit');
   const lineLimitHelp = lineLimitEl ? lineLimitEl.nextElementSibling : null;
   const targetFontSize = 75;
   
   setScriptureFontSize(targetFontSize);
   
+  document.body.classList.remove('theme-lovers-series', 'theme-inner-life');
   if (isLovers) {
     document.body.classList.add('theme-lovers-series');
     if (lineLimitEl) lineLimitEl.value = '9';
     if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Lover\'s Series)';
+  } else if (isInnerLife) {
+    document.body.classList.add('theme-inner-life');
+    if (lineLimitEl) lineLimitEl.value = '9';
+    if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (The Inner Life)';
+
+    // Automatically apply sentence case with reverential capitalization to sermon points
+    if (slidesData && slidesData.length > 0) {
+      slidesData.forEach(slide => {
+        if (slide.type === 'sermon-point') {
+          if (!slide.originalText) slide.originalText = slide.text;
+          const cased = toSentenceCaseWithReverence(slide.originalText);
+          if (cased !== slide.originalText) {
+            slide.text = cased;
+            slide.hasCasingWarning = true;
+          }
+        }
+      });
+    }
   } else {
-    document.body.classList.remove('theme-lovers-series');
     if (lineLimitEl) lineLimitEl.value = '9';
     if (lineLimitHelp) lineLimitHelp.textContent = 'Locked at 9 lines max (Porch Generic)';
   }
 
+  if (!isInnerLife && slidesData && slidesData.length > 0) {
+    slidesData.forEach(slide => {
+      if (slide.type === 'sermon-point' && slide.originalText && slide.hasCasingWarning) {
+        slide.text = slide.originalText;
+        slide.hasCasingWarning = false;
+      }
+    });
+  }
+
   const fontFamily = '"Neue Haas Grotesk Display Pro", "Neue Haas Grotesk Display Pro 55 Roman", "NeueHaasGroteskDisplayPro-55Roman", "Neue Haas Grotesk", "Inter", sans-serif';
+  const calibWidth = isInnerLife ? '2111px' : '2101.5px';
 
   if (lineCounterCalibration) {
-    lineCounterCalibration.style.width = '2101.5px';
+    lineCounterCalibration.style.width = calibWidth;
     lineCounterCalibration.style.fontSize = `${targetFontSize}px`;
     lineCounterCalibration.style.lineHeight = '1.22';
     lineCounterCalibration.style.fontFamily = fontFamily;
@@ -505,7 +612,7 @@ function updateCalibrationForTheme() {
     lineCounterCalibration.style.webkitFontSmoothing = 'antialiased';
   }
   if (lineCounterMeasurement) {
-    lineCounterMeasurement.style.width = '2101.5px';
+    lineCounterMeasurement.style.width = calibWidth;
     lineCounterMeasurement.style.fontSize = `${targetFontSize}px`;
     lineCounterMeasurement.style.lineHeight = '1.22';
     lineCounterMeasurement.style.fontFamily = fontFamily;
@@ -606,9 +713,10 @@ if (scriptureFontSizeEl) {
 }
 
 function applyContextOpacity(opacityVal) {
-  const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-  const colorRgb = isLovers ? '0, 0, 0' : '228, 227, 213';
-  const highlightColor = isLovers ? '#000000' : '#E4E3D5';
+  const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+  const isDarkText = themeVal === 'lovers-series' || themeVal === 'inner-life';
+  const colorRgb = isDarkText ? '0, 0, 0' : '228, 227, 213';
+  const highlightColor = isDarkText ? '#000000' : '#E4E3D5';
 
   // Update stylesheet variables dynamically or directly update style on canvas
   document.documentElement.style.setProperty('--muted-opacity', opacityVal);
@@ -818,9 +926,24 @@ function parseRawInput(text) {
     }
     
     // 3. Fallback to sermon point
+    const isInnerLifeTheme = slideThemeEl && slideThemeEl.value === 'inner-life';
+    let pointText = cleanLine;
+    let hasCasingWarning = false;
+    
+    if (isInnerLifeTheme) {
+      const cased = toSentenceCaseWithReverence(cleanLine);
+      if (cased !== cleanLine) {
+        hasCasingWarning = true;
+        pointText = cased;
+      }
+    }
+
     parsed.push({
       type: 'sermon-point',
-      text: cleanLine
+      text: pointText,
+      originalText: cleanLine,
+      hasCasingWarning: hasCasingWarning,
+      rawLine: line
     });
   }
   
@@ -1558,9 +1681,13 @@ function renderSlideDeck() {
     // Bottom Overlay Info bar
     const infoBar = document.createElement('div');
     infoBar.className = 'grid-slide-info';
+    const casingBadge = slide.hasCasingWarning 
+      ? `<span class="grid-slide-casing-flag" title="Auto-cased to sentence case: click slide to review reverential capitalization">⚠️ Check Casing</span>` 
+      : '';
     infoBar.innerHTML = `
       <span class="grid-slide-num">Slide ${idx + 1}</span>
-      <span class="grid-slide-label">${slide.type === 'scripture' ? `${slide.refBook} ${slide.refVerse}` : (slide.type === 'quote' ? `Quote: ${slide.author}` : 'Title')}</span>
+      ${casingBadge}
+      <span class="grid-slide-label">${slide.type === 'scripture' ? `${slide.refBook} ${slide.refVerse}` : (slide.type === 'quote' ? `Quote: ${slide.author}` : 'Point')}</span>
     `;
     card.appendChild(infoBar);
     
@@ -2123,6 +2250,15 @@ function renderActiveSlide() {
     activeSlideOverflowWarning.style.display = 'none';
   }
   
+  const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
+  if (activeSlideCasingWarning) {
+    if (slide.type === 'sermon-point' && slide.hasCasingWarning) {
+      activeSlideCasingWarning.style.display = 'flex';
+    } else {
+      activeSlideCasingWarning.style.display = 'none';
+    }
+  }
+  
   updateActiveSlideNotesPreview();
   scaleEditorCanvas();
 }
@@ -2307,11 +2443,50 @@ activeSlideTextarea.addEventListener('input', (e) => {
     activeSlideLinesEl.className = 'badge success';
     activeSlideOverflowWarning.style.display = 'none';
   }
+  if (slide.type === 'sermon-point') {
+    slide.hasCasingWarning = false;
+    const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
+    if (activeSlideCasingWarning) activeSlideCasingWarning.style.display = 'none';
+  }
   if (slide.type === 'scripture') {
     updateContextButtonStates(slide);
   }
   updateActiveSlideNotesPreview();
+  renderSlideDeck();
 });
+
+// Reverential Casing Action Listeners
+const btnRevertCasing = document.getElementById('btn-revert-casing');
+const btnDismissCasing = document.getElementById('btn-dismiss-casing');
+
+if (btnRevertCasing) {
+  btnRevertCasing.addEventListener('click', () => {
+    const slide = slidesData[activeSlideIndex];
+    if (slide && slide.originalText) {
+      slide.text = slide.originalText;
+      slide.hasCasingWarning = false;
+      activeSlideTextarea.value = formatTextForTextarea(slide.text);
+      if (editorTitleEl) editorTitleEl.innerHTML = slide.text;
+      const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
+      if (activeSlideCasingWarning) activeSlideCasingWarning.style.display = 'none';
+      renderSlideDeck();
+      showToast('Reverted to original pasted text.');
+    }
+  });
+}
+
+if (btnDismissCasing) {
+  btnDismissCasing.addEventListener('click', () => {
+    const slide = slidesData[activeSlideIndex];
+    if (slide) {
+      slide.hasCasingWarning = false;
+      const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
+      if (activeSlideCasingWarning) activeSlideCasingWarning.style.display = 'none';
+      renderSlideDeck();
+      showToast('Casing accepted.');
+    }
+  });
+}
 
 // Inline contenteditable changes in editor canvas
 slideCanvasPreview.addEventListener('input', (e) => {
@@ -2890,8 +3065,10 @@ btnGenerate.addEventListener('click', async () => {
 // 16. Unified Demo Outline Loader (Tied to currently selected Theme)
 if (btnLoadSample) {
   btnLoadSample.addEventListener('click', () => {
-    const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-    if (isLovers) {
+    const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+    const isLovers = themeVal === 'lovers-series';
+    const isInnerLife = themeVal === 'inner-life';
+    if (isLovers || isInnerLife) {
       rawInputEl.value = `2 Tim 3:1-5
 Ex. 32:1-4
 Idolatry Begins with Getting Used to God
@@ -2933,7 +3110,7 @@ Slide 18: Judges 6:1-6 NLT`;
     const spanEl = btnLoadSample.querySelector('span');
     if (spanEl) {
       const origText = spanEl.textContent;
-      spanEl.textContent = isLovers ? "Lovers Sample Loaded!" : "Porch Sample Loaded!";
+      spanEl.textContent = isInnerLife ? "Inner Life Sample Loaded!" : (isLovers ? "Lovers Sample Loaded!" : "Porch Sample Loaded!");
       setTimeout(() => {
         spanEl.textContent = origText;
       }, 1500);
@@ -2986,12 +3163,15 @@ async function renderSlideToCanvas(slide, canvas) {
   // Normalize layout text line-breaks for HTML2Canvas compatibility
   const cleanText = normalizeLineBreaks(slide.text);
 
-  const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-  const textColor = isLovers ? '#000000' : '#E4E3D5';
-  const dividerColor = isLovers ? '#000000' : '#E4E3D5';
+  const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+  const isLovers = themeVal === 'lovers-series';
+  const isInnerLife = themeVal === 'inner-life';
+  const isDarkText = isLovers || isInnerLife;
+  const textColor = isDarkText ? '#000000' : '#E4E3D5';
+  const dividerColor = isDarkText ? '#000000' : '#E4E3D5';
   // Context opacity strictly honors user control without artificial floor
   const exportContextOpacity = parseFloat(contextOpacityEl.value || 0.25);
-  const contextColor = isLovers ? `rgba(0, 0, 0, ${exportContextOpacity})` : `rgba(228, 227, 213, ${exportContextOpacity})`;
+  const contextColor = isDarkText ? `rgba(0, 0, 0, ${exportContextOpacity})` : `rgba(228, 227, 213, ${exportContextOpacity})`;
   const hasHighlight = cleanText.includes('class="highlight"');
 
   // Set innerHTML based on slide type and active theme
@@ -3000,29 +3180,58 @@ async function renderSlideToCanvas(slide, canvas) {
     const textAlign = isPoetry ? 'left' : 'justify';
     const formatClass = (slide.format === 'poetry') ? 'format-poetry' : (slide.format === 'mixed' ? 'format-mixed' : '');
     const fontSize = getScriptureFontSize();
+    
+    let leftColStyle = `position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;`;
+    let refBookAlign = 'center';
+    let refVerseAlign = 'center';
+    let dividerStyle = `position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: ${dividerColor};`;
+    let rightColStyle = `position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;`;
+
+    if (isInnerLife) {
+      leftColStyle = `position: absolute; left: 330px; top: 690px; width: 821px; height: 371px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; padding: 0; box-sizing: border-box;`;
+      refBookAlign = 'right';
+      refVerseAlign = 'right';
+      dividerStyle = `position: absolute; left: 1250px; top: 469px; width: 8px; height: 818px; background-color: ${dividerColor};`;
+      rightColStyle = `position: absolute; left: 1358px; top: 424px; width: 2111px; height: 908px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;`;
+    }
+
     slideDiv.innerHTML = `
-      <div class="slide-left-column" style="position: absolute; left: 122.5px; top: 815.2px; width: 1279.5px; height: 368.6px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0; box-sizing: border-box;">
-        <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-transform: uppercase; text-align: center; line-height: 1.2; margin-bottom: 0; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.refBook}</div>
-        <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-align: center; line-height: 1.2; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.refVerse}</div>
+      <div class="slide-left-column" style="${leftColStyle}">
+        <div class="slide-ref-book" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-transform: uppercase; text-align: ${refBookAlign}; line-height: 1.2; margin-bottom: 0; width: 100%; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.refBook}</div>
+        <div class="slide-ref-verse" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; color: ${textColor}; text-align: ${refVerseAlign}; line-height: 1.2; width: 100%; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.refVerse}</div>
       </div>
-      <div class="slide-divider" style="position: absolute; left: 1504px; top: 592.4px; width: 7.8px; height: 814.3px; background-color: ${dividerColor};"></div>
-      <div class="slide-right-column" style="position: absolute; left: 1613.8px; top: 574.4px; width: 2101.5px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; padding-right: 0; box-sizing: border-box;">
+      <div class="slide-divider" style="${dividerStyle}"></div>
+      <div class="slide-right-column" style="${rightColStyle}">
         <div class="slide-text-body ${formatClass}" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: ${fontSize}px; line-height: 1.22; text-align: ${textAlign}; color: ${contextColor}; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${cleanText}</div>
       </div>
     `;
   } else if (slide.type === 'quote') {
     const quoteTextColor = hasHighlight ? contextColor : textColor;
     const quoteContent = `“${stripOuterQuotes(cleanText)}”`;
+    let quoteContainerStyle = `position: absolute; left: 612.5px; top: 590px; width: 2615px; height: 585px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;`;
+    let quoteAuthorStyle = `position: absolute; left: 50%; transform: translateX(-50%); top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;`;
+
+    if (isInnerLife) {
+      quoteContainerStyle = `position: absolute; left: 612px; top: 518px; width: 2615px; height: 585px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;`;
+      quoteAuthorStyle = `position: absolute; left: 50%; transform: translateX(-50%); top: 596px; width: 1822px; height: 105px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;`;
+    }
+
     slideDiv.innerHTML = `
-      <div class="slide-quote-container" style="position: absolute; left: 612.5px; top: 590px; width: 2615px; height: 585px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;">
+      <div class="slide-quote-container" style="${quoteContainerStyle}">
         <div class="slide-quote-text" style="font-family: 'Neue Haas Grotesk Display Pro', 'Neue Haas Grotesk Display Pro 55 Roman', 'NeueHaasGroteskDisplayPro-55Roman', 'Neue Haas Grotesk', 'Inter', sans-serif; font-weight: normal; font-size: 82px; line-height: 1.18; color: ${quoteTextColor}; text-align: justify; width: 100%; box-sizing: border-box; white-space: normal; word-break: normal; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${quoteContent}</div>
-        <div class="slide-quote-author" style="position: absolute; left: 50%; transform: translateX(-50%); top: 591px; width: 1594px; height: 134px; display: flex; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 400; font-size: 96px; line-height: 1; color: ${textColor}; text-align: center; text-transform: uppercase; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">${slide.author}</div>
+        <div class="slide-quote-author" style="${quoteAuthorStyle}">${slide.author}</div>
       </div>
     `;
   } else {
     const titleTextColor = hasHighlight ? contextColor : textColor;
+    let titleContainerStyle = `position: absolute; left: 200px; top: 574.4px; width: 3440px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;`;
+    
+    if (isInnerLife) {
+      titleContainerStyle = `position: absolute; left: 480px; top: 326px; width: 2880px; height: 1100px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 96px; line-height: 1.5; color: ${titleTextColor}; text-align: center; text-transform: none; letter-spacing: normal; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;`;
+    }
+
     slideDiv.innerHTML = `
-      <div class="slide-center-title" style="position: absolute; left: 200px; top: 574.4px; width: 3440px; height: 850.3px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 90px; line-height: 1.6; color: ${titleTextColor}; text-align: center; text-transform: uppercase; letter-spacing: 2px; box-sizing: border-box; font-variant-numeric: slashed-zero; font-feature-settings: 'zero' 1, 'ss03' 1; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: geometricPrecision;">
+      <div class="slide-center-title" style="${titleContainerStyle}">
         <div style="width: 100%;">${cleanText}</div>
       </div>
     `;
@@ -3161,8 +3370,8 @@ btnExport.addEventListener('click', async () => {
     const day = String(today.getDate()).padStart(2, '0');
     const dateStr = `${year}${month}${day}`;
 
-    const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-    const themeTitle = isLovers ? 'Lovers' : 'Porch';
+    const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+    const themeTitle = themeVal === 'inner-life' ? 'Inner_Life' : (themeVal === 'lovers-series' ? 'Lovers' : 'Porch');
 
     if (slidesData.length === 1) {
       const slide = slidesData[0];
@@ -3277,8 +3486,8 @@ if (btnExportProPresenter) {
         dateStr = `${year}${month}${day}`;
       }
 
-      const isLovers = slideThemeEl && slideThemeEl.value === 'lovers-series';
-      const themeTitle = isLovers ? 'Lovers' : 'Porch';
+      const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+      const themeTitle = themeVal === 'inner-life' ? 'The Inner Life' : (themeVal === 'lovers-series' ? 'Lovers' : 'Porch');
       const presentationName = `${dateStr} - ${themeTitle}`;
 
       const bundleBlob = await exportProPresenterBundle({

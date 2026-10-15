@@ -39,6 +39,7 @@
             <select id="slide-theme">
               <option value="porch-generic" selected>Porch Generic</option>
               <option value="lovers-series">Lover's Series (Black Text)</option>
+              <option value="inner-life">The Inner Life (Black Text)</option>
             </select>
             <button type="button" id="btn-load-sample" class="btn btn-secondary btn-load-sample" title="Load sample outline for selected theme">
               <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -299,6 +300,18 @@
                   <p class="warning-text" id="active-slide-overflow-warning" style="display: none;">
                     ⚠️ Warning: Text exceeds max lines! It will be cut off or scaled improperly. Reduce the text or split the slide.
                   </p>
+                  <div class="casing-warning-banner" id="active-slide-casing-warning" style="display: none;">
+                    <div class="casing-warning-content">
+                      <span class="casing-warning-icon">⚠️</span>
+                      <div class="casing-warning-text">
+                        <strong>Check Reverential Casing:</strong> Point was auto-converted to sentence case. Verify divine pronouns (He, Him, His, You, Your, Them) before exporting.
+                      </div>
+                    </div>
+                    <div class="casing-warning-actions">
+                      <button type="button" id="btn-revert-casing" class="btn btn-warning-action" title="Revert to original pasted text">Revert to Pasted</button>
+                      <button type="button" id="btn-dismiss-casing" class="btn btn-warning-action btn-dismiss" title="Accept current casing and dismiss warning">Looks Good</button>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="editor-text-header">
