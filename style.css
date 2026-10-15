@@ -1373,7 +1373,7 @@ body.theme-inner-life.show-checkerboard #slide-canvas-preview.checkerboard {
   width: 2880px;
   height: 1100px;
   color: #000000;
-  text-transform: none;
+  text-transform: none !important;
   letter-spacing: normal;
   font-size: 96px;
   line-height: 1.5;
@@ -2008,6 +2008,11 @@ textarea#active-slide-textarea:focus {
   letter-spacing: 1px;
   color: var(--text-primary);
   line-height: 1.4;
+}
+
+.theme-inner-life .proof-slide-point {
+  text-transform: none !important;
+  letter-spacing: normal !important;
 }
 
 .proof-slide-quote-text {

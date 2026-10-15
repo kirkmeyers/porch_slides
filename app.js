@@ -577,12 +577,11 @@ function updateCalibrationForTheme() {
     if (slidesData && slidesData.length > 0) {
       slidesData.forEach(slide => {
         if (slide.type === 'sermon-point') {
-          if (!slide.originalText) slide.originalText = slide.text;
-          const cased = toSentenceCaseWithReverence(slide.originalText);
-          if (cased !== slide.originalText) {
-            slide.text = cased;
-            slide.hasCasingWarning = true;
-          }
+          const orig = slide.originalText || slide.rawText || slide.text;
+          slide.originalText = orig;
+          const cased = toSentenceCaseWithReverence(orig);
+          slide.text = preventOrphans(cased);
+          slide.hasCasingWarning = (cased !== orig);
         }
       });
     }
@@ -593,8 +592,9 @@ function updateCalibrationForTheme() {
 
   if (!isInnerLife && slidesData && slidesData.length > 0) {
     slidesData.forEach(slide => {
-      if (slide.type === 'sermon-point' && slide.originalText && slide.hasCasingWarning) {
-        slide.text = slide.originalText;
+      if (slide.type === 'sermon-point') {
+        const orig = slide.originalText || slide.rawText || slide.text;
+        slide.text = preventOrphans(orig.toUpperCase());
         slide.hasCasingWarning = false;
       }
     });
@@ -1383,14 +1383,32 @@ async function buildSlides(parsedRequests) {
   const maxLines = getMaxLines();
   const coalescedRequests = coalesceScriptureRequests(parsedRequests);
   
+  const currentTheme = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+  const isInnerLife = currentTheme === 'inner-life';
+
   for (const item of coalescedRequests) {
     if (item.type === 'sermon-point') {
+      const origText = item.originalText || item.text;
+      let slideText;
+      let hasWarning = false;
+
+      if (isInnerLife) {
+        const cased = toSentenceCaseWithReverence(origText);
+        slideText = cased;
+        hasWarning = (cased !== origText);
+      } else {
+        slideText = origText.toUpperCase();
+        hasWarning = false;
+      }
+
       slides.push({
         type: 'sermon-point',
-        text: preventOrphans(item.text.toUpperCase()),
+        text: preventOrphans(slideText),
+        originalText: origText,
+        hasCasingWarning: hasWarning,
         refBook: '',
         refVerse: '',
-        rawText: item.text
+        rawText: origText
       });
     } else if (item.type === 'quote') {
       slides.push({
@@ -2463,7 +2481,7 @@ if (btnRevertCasing) {
   btnRevertCasing.addEventListener('click', () => {
     const slide = slidesData[activeSlideIndex];
     if (slide && slide.originalText) {
-      slide.text = slide.originalText;
+      slide.text = preventOrphans(slide.originalText);
       slide.hasCasingWarning = false;
       activeSlideTextarea.value = formatTextForTextarea(slide.text);
       if (editorTitleEl) editorTitleEl.innerHTML = slide.text;
@@ -2528,6 +2546,9 @@ slideCanvasPreview.addEventListener('input', (e) => {
     const cleanedHtml = preventOrphans(normalizedHtml);
     slide.text = cleanedHtml;
     slide.rawText = cleanedHtml;
+    slide.hasCasingWarning = false;
+    const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
+    if (activeSlideCasingWarning) activeSlideCasingWarning.style.display = 'none';
     delete slide.customNotes;
     // Show raw text with newlines in editor text area
     activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
