@@ -979,6 +979,32 @@ function parseRawInput(text) {
     
     // Check if there's a #:# pattern (colon surrounded by digits with optional spaces)
     const hasChapterVersePattern = /\d+\s*:\s*\d+/.test(cleanLine);
+
+    // Check for cross-chapter range pattern: e.g. "John 3:36-4:2" or "1 Cor 12:31-13:3"
+    const crossChapterRegex = /^([1-3]?\s*[^:\n]+?)\s+(\d+)\s*:\s*(\d+)\s*[-–—]\s*(\d+)\s*:\s*(\d+)(?:\s*(?:\(([A-Za-z0-9\s]+)\)|([A-Za-z0-9\s]+)))?$/i;
+    const crossMatch = cleanLine.match(crossChapterRegex);
+    if (crossMatch) {
+      const bookRaw = crossMatch[1].trim();
+      const ch1 = parseInt(crossMatch[2]);
+      const v1 = parseInt(crossMatch[3]);
+      const ch2 = parseInt(crossMatch[4]);
+      const v2 = parseInt(crossMatch[5]);
+      const translationOverride = (crossMatch[6] || crossMatch[7]) ? (crossMatch[6] || crossMatch[7]).trim() : null;
+      const bookMapped = parseBookAbbreviation(bookRaw);
+
+      if (bookMapped) {
+        parsed.push({
+          type: 'cross-chapter-warning',
+          bookName: bookMapped.name,
+          bookAbbr: bookRaw,
+          ch1, v1, ch2, v2,
+          translation: translationOverride,
+          warningMessage: `Cross-chapter range (${bookMapped.name} ${ch1}:${v1}-${ch2}:${v2}) not supported. Please split into separate requests for ${bookMapped.name} ${ch1} and ${bookMapped.name} ${ch2}.`,
+          rawLine: line
+        });
+        continue;
+      }
+    }
     
     // 1. Try matching scripture first
     let scripMatch = cleanLine.match(scriptureRegex);
@@ -1555,6 +1581,17 @@ async function buildSlides(parsedRequests) {
         refVerse: '',
         rawText: item.text
       });
+    } else if (item.type === 'cross-chapter-warning') {
+      slides.push({
+        type: 'sermon-point',
+        text: preventOrphans(`[Cross-chapter range: ${item.bookName} ${item.ch1}:${item.v1}–${item.ch2}:${item.v2}]<br><small style="font-size:0.55em; opacity:0.8;">Cross-chapter ranges are not supported. Please split into separate slide requests for ${item.bookName} ${item.ch1} and ${item.bookName} ${item.ch2}.</small>`),
+        originalText: item.rawLine,
+        hasCrossChapterWarning: true,
+        warningMessage: item.warningMessage,
+        refBook: item.bookName.toUpperCase(),
+        refVerse: `${item.ch1}:${item.v1}-${item.ch2}:${item.v2}`,
+        rawText: item.rawLine
+      });
     } else if (item.type === 'scripture') {
       const { bookId, bookName, chapter, verses, translation } = item;
       
@@ -1855,11 +1892,15 @@ function renderSlideDeck() {
     const translationBadge = slide.hasTranslationWarning
       ? `<span class="grid-slide-warning-flag" title="Unrecognized translation '${slide.unrecognizedTranslation}' (used default: ${slide.translation})">⚠️ Translation: ${slide.unrecognizedTranslation}</span>`
       : '';
+    const crossChapterBadge = slide.hasCrossChapterWarning
+      ? `<span class="grid-slide-warning-flag" title="${slide.warningMessage || 'Cross-chapter range'}">⚠️ Cross-Chapter</span>`
+      : '';
     infoBar.innerHTML = `
       <span class="grid-slide-num">Slide ${idx + 1}</span>
       ${casingBadge}
       ${formatBadge}
       ${translationBadge}
+      ${crossChapterBadge}
       <span class="grid-slide-label">${slide.type === 'scripture' ? `${slide.refBook} ${slide.refVerse}` : (slide.type === 'quote' ? `Quote: ${slide.author}` : 'Point')}</span>
     `;
     card.appendChild(infoBar);
@@ -2451,6 +2492,19 @@ function renderActiveSlide() {
       activeSlideTranslationWarning.style.display = 'flex';
     } else {
       activeSlideTranslationWarning.style.display = 'none';
+    }
+  }
+
+  const activeSlideCrossChapterWarning = document.getElementById('active-slide-crosschapter-warning');
+  const activeSlideCrossChapterWarningText = document.getElementById('active-slide-crosschapter-warning-text');
+  if (activeSlideCrossChapterWarning) {
+    if (slide.hasCrossChapterWarning) {
+      if (activeSlideCrossChapterWarningText) {
+        activeSlideCrossChapterWarningText.innerHTML = `<strong>Cross-Chapter Range:</strong> ${slide.warningMessage || 'Please split into separate slide requests for each chapter.'}`;
+      }
+      activeSlideCrossChapterWarning.style.display = 'flex';
+    } else {
+      activeSlideCrossChapterWarning.style.display = 'none';
     }
   }
   
