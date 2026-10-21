@@ -77,6 +77,140 @@ This repository includes a GitHub Actions workflow (`.github/workflows/deploy.ym
 
 ---
 
+## 📋 Automated Request Files & Link Format
+
+An upstream tool (such as a file watcher/listener on a ProPresenter production machine) can prepare slide requests and load them directly into the generator via file or link.
+
+### 1. Request File Format (`.txt`)
+Plain UTF-8 text with one slide request per line. Optional settings lines at the top begin with `#`:
+
+```text
+# theme: porch-generic        (porch-generic | lovers-series | inner-life)
+# translation: ESV            (any code TRANSLATION_MAP accepts: ESV, NIV, KJV, NASB, NLT, CSB, etc.)
+# communicator: Jane Smith    (fills the Communicator field)
+# title: Idolatry Week 7      (shown in the UI only, not used in file names)
+Slide 1: Jett Picture (attached)
+Slide 2: Mark 9:9-13 (ESV)
+Slide 3: Romans 8:18
+Slide 4: Theology of Suffering
+Slide 5: Charles Spurgeon – "I have learned to kiss the wave that throws me against the Rock of Ages."
+```
+
+#### Rules:
+- Lines starting with `#` are settings or comments, never slides. Unknown `# key:` lines are ignored.
+- Theme and translation settings are applied to dropdowns **before** parsing scripture (ensuring theme-specific casing rules apply).
+- Unrecognized theme or translation values preserve the current dropdown selection and display a warning toast naming the invalid value.
+- Request files can be loaded by clicking **Load requests** or by dragging and dropping the `.txt` file onto the outline text box or input panel. If text is already present, a confirmation prompt prevents accidental replacement.
+
+---
+
+### 2. Communicator Naming in Exported Files
+When the **Communicator** field is filled (manually or via `# communicator:`), the communicator's **last name** is automatically included in every exported file.
+
+The last name is extracted from the last word of the field, automatically skipping suffixes like `Jr.`, `Sr.`, `II`, `III`, and `IV` (`"Jane Smith"` → `Smith`, `"John Doe Jr."` → `Doe`).
+
+#### File Naming Structure:
+| Export Type | With Communicator (`Smith`) | Blank / Default |
+| :--- | :--- | :--- |
+| **4K PNG** | `YYYYMMDD - Porch - Smith - mark_9_9-13.png` | `YYYYMMDD - Porch - mark_9_9-13.png` |
+| **ZIP Archive** | `YYYYMMDD - Porch - Smith.zip` | `YYYYMMDD - Porch.zip` |
+| **ProPresenter Bundle** | `YYYYMMDD - Porch - Smith.probundle` | `YYYYMMDD - Porch.probundle` |
+| **Presentation inside bundle** | `YYYYMMDD - Porch - Smith.pro` | `YYYYMMDD - Porch.pro` |
+
+*Note: Theme words match their existing definitions (`Porch`, `Lovers`, or `Inner_Life` / `The Inner Life`). Individual slide filenames inside the ZIP (`001_mark_9_9-13.png`) remain unchanged.*
+
+---
+
+### 3. Load From Link (`#outline=<payload>`)
+The app supports opening directly with pre-loaded requests via a URL hash parameter:
+
+```text
+https://kirkmeyers.github.io/porch_slides/#outline=<payload>
+```
+
+`<payload>` is the request file text compressed using **DEFLATE** inside a single-file ZIP archive named `d` and encoded as **URL-safe Base64** (no padding), identical to the helper format used by `#review=` and `#deck=`.
+
+#### Browser Helper:
+In the web app, call:
+```javascript
+const url = await encodeOutlineLink(requestFileText);
+```
+
+#### Node.js Script Example (Using `zlib`):
+This self-contained Node script creates valid `#outline=` links without external dependencies:
+
+```javascript
+import fs from 'node:fs';
+import zlib from 'node:zlib';
+
+function crc32(buf) {
+  let crc = ~0;
+  for (let i = 0; i < buf.length; i++) {
+    crc ^= buf[i];
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (-(crc & 1) & 0xEDB88320);
+    }
+  }
+  return (~crc) >>> 0;
+}
+
+function createZipBuffer(filename, contentBuf) {
+  const compressed = zlib.deflateRawSync(contentBuf, { level: 9 });
+  const fnBuf = Buffer.from(filename);
+  const crc = crc32(contentBuf);
+
+  // Local File Header (30 + fnLen)
+  const lfh = Buffer.alloc(30 + fnBuf.length);
+  lfh.writeUInt32LE(0x04034b50, 0);
+  lfh.writeUInt16LE(20, 4); // version
+  lfh.writeUInt16LE(8, 8);  // compression: DEFLATE
+  lfh.writeUInt32LE(crc, 14);
+  lfh.writeUInt32LE(compressed.length, 18);
+  lfh.writeUInt32LE(contentBuf.length, 22);
+  lfh.writeUInt16LE(fnBuf.length, 26);
+  fnBuf.copy(lfh, 30);
+
+  // Central Directory Header (46 + fnLen)
+  const cdh = Buffer.alloc(46 + fnBuf.length);
+  cdh.writeUInt32LE(0x02014b50, 0);
+  cdh.writeUInt16LE(20, 4);
+  cdh.writeUInt16LE(20, 6);
+  cdh.writeUInt16LE(8, 10);
+  cdh.writeUInt32LE(crc, 16);
+  cdh.writeUInt32LE(compressed.length, 20);
+  cdh.writeUInt32LE(contentBuf.length, 24);
+  cdh.writeUInt16LE(fnBuf.length, 28);
+  fnBuf.copy(cdh, 46);
+
+  // End of Central Directory (22)
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(1, 8);  // entries count
+  eocd.writeUInt16LE(1, 10); // total entries
+  eocd.writeUInt32LE(cdh.length, 12);
+  eocd.writeUInt32LE(lfh.length + compressed.length, 16);
+
+  return Buffer.concat([lfh, compressed, cdh, eocd]);
+}
+
+export function buildOutlineUrl(requestText, baseUrl = 'https://kirkmeyers.github.io/porch_slides/') {
+  const zipBuf = createZipBuffer('d', Buffer.from(requestText, 'utf8'));
+  const payload = zipBuf.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `${baseUrl}#outline=${payload}`;
+}
+
+// Example usage:
+const text = fs.readFileSync('samples/requests-example.txt', 'utf8');
+console.log(buildOutlineUrl(text));
+```
+
+*(Alternatively, if your Node environment uses `jszip`: `const zip = new JSZip(); zip.file('d', text); const b64 = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' }); return base + '#outline=' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');`)*
+
+---
+
 ## 📺 ProPresenter Workflow
 
 1. Generate your sermon deck using the web app and click **Download 4K Slides (ZIP)**.
