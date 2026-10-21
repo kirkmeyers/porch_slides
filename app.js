@@ -3217,7 +3217,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // 15. Generate Action
-btnGenerate.addEventListener('click', async () => {
+async function generateSlides() {
   const rawText = rawInputEl.value.trim();
   if (!rawText) return;
   
@@ -3239,6 +3239,92 @@ btnGenerate.addEventListener('click', async () => {
     btnGenerate.disabled = false;
     btnGenerate.innerHTML = `${LIGHTNING_ICON_SVG}<span>Generate Slides</span>`;
   }
+}
+
+btnGenerate.addEventListener('click', generateSlides);
+
+// Request File Loading & Drag-and-Drop Handler
+async function handleRequestFileLoad(file) {
+  if (!file) return;
+
+  // Confirm before replacing if text box already has content
+  if (rawInputEl && rawInputEl.value.trim().length > 0) {
+    const proceed = window.confirm("Replace current outline with the loaded request file?");
+    if (!proceed) return;
+  }
+
+  try {
+    const text = await file.text();
+    const { settings, bodyText } = parseRequestSettings(text);
+    applyRequestSettings(settings);
+    
+    rawInputEl.value = bodyText;
+    
+    const parsed = parseRawInput(bodyText);
+    const count = parsed.length;
+    
+    await generateSlides();
+    showToast(`Loaded ${count} request${count === 1 ? '' : 's'} from ${file.name}`);
+  } catch (err) {
+    console.error("Failed to load request file:", err);
+    showToast(`⚠️ Could not load request file: ${err.message || err}`);
+  }
+}
+
+// "Load requests" button & hidden file picker
+if (btnLoadRequests && fileInputRequests) {
+  btnLoadRequests.addEventListener('click', () => {
+    fileInputRequests.value = '';
+    fileInputRequests.click();
+  });
+
+  fileInputRequests.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      handleRequestFileLoad(file);
+    }
+  });
+}
+
+// Drag & drop support on rawInputEl and its parent panel
+const outlinePanel = rawInputEl ? rawInputEl.closest('.settings-group') : null;
+const dropTargets = [rawInputEl, outlinePanel].filter(Boolean);
+
+dropTargets.forEach(target => {
+  ['dragenter', 'dragover'].forEach(eventName => {
+    target.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      target.classList.add('drag-over');
+      if (outlinePanel) outlinePanel.classList.add('drag-over');
+    });
+  });
+
+  ['dragleave', 'dragend'].forEach(eventName => {
+    target.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      target.classList.remove('drag-over');
+      if (outlinePanel) outlinePanel.classList.remove('drag-over');
+    });
+  });
+
+  target.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    target.classList.remove('drag-over');
+    if (outlinePanel) outlinePanel.classList.remove('drag-over');
+
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length > 0) {
+      const file = dt.files[0];
+      if (file.name.toLowerCase().endsWith('.txt') || file.type.startsWith('text/')) {
+        handleRequestFileLoad(file);
+      } else {
+        showToast('⚠️ Please drop a .txt request file.');
+      }
+    }
+  });
 });
 
 // 16. Unified Demo Outline Loader (Tied to currently selected Theme)
