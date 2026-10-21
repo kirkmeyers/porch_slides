@@ -1141,32 +1141,87 @@ function parseVersesString(verseStr) {
   return [...new Set(verses)].sort((a, b) => a - b);
 }
 
-// 7. Bible API fetching with Cache
+// Check if translation is NIV
+function isNivTranslation(translation) {
+  if (!translation) return false;
+  const t = translation.trim().toUpperCase();
+  return t === 'NIV' || t === 'NIV2011' || t === 'NIV 84' || t === 'NIV84';
+}
+
+// Check if chapter data is usable scripture
+function isUsableChapterData(data) {
+  if (!Array.isArray(data) || data.length === 0) return false;
+
+  // 1. Reject if any verse text contains "has prohibited me from using"
+  const hasProhibition = data.some(v => v.text && v.text.includes('has prohibited me from using'));
+  if (hasProhibition) return false;
+
+  // 2. Reject if every verse in the chapter has identical text (when >= 2 verses)
+  if (data.length >= 2) {
+    const firstText = data[0].text ? data[0].text.trim() : '';
+    const allIdentical = data.every(v => (v.text ? v.text.trim() : '') === firstText);
+    if (allIdentical) return false;
+  }
+
+  return true;
+}
+
+// 7. Bible API fetching with Cache and 429 Retry
 async function fetchChapter(bookId, chapter, translation) {
   let activeTranslation = translation || translationEl.value;
   if (activeTranslation === 'NASB_1995') {
     activeTranslation = 'NASB';
   }
+
+  // Do not request NIV2011 or NIV from Bolls at all
+  if (isNivTranslation(activeTranslation)) {
+    return null;
+  }
+
   const cacheKey = `${activeTranslation}_${bookId}_${chapter}`;
-  
   if (chapterCache[cacheKey]) {
     return chapterCache[cacheKey];
   }
-  
-  try {
-    const url = `https://bolls.life/get-text/${activeTranslation}/${bookId}/${chapter}/`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch chapter from Bolls: ${response.status}`);
+
+  const url = `https://bolls.life/get-text/${activeTranslation}/${bookId}/${chapter}/`;
+  const maxRetries = 3;
+  const backoffDelays = [1000, 2000, 4000];
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url);
+
+      if (response.status === 429 && attempt < maxRetries) {
+        console.warn(`Bolls rate limited (429) for ${cacheKey}, retrying in ${backoffDelays[attempt]}ms (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise(r => setTimeout(r, backoffDelays[attempt]));
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch chapter from Bolls: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Reject unusable responses
+      if (!isUsableChapterData(data)) {
+        console.warn(`Bolls returned unusable data for ${cacheKey} (prohibition or repeated text). Rejecting response.`);
+        return null;
+      }
+
+      chapterCache[cacheKey] = data;
+      return data;
+    } catch (error) {
+      if (attempt < maxRetries && error.message && error.message.includes('429')) {
+        await new Promise(r => setTimeout(r, backoffDelays[attempt]));
+        continue;
+      }
+      console.error(`API Fetch Error for ${cacheKey}:`, error);
+      return null;
     }
-    const data = await response.json();
-    // Cache the data
-    chapterCache[cacheKey] = data;
-    return data;
-  } catch (error) {
-    console.error("API Fetch Error:", error);
-    return null;
   }
+
+  return null;
 }
 
 // 8. Line measurement and Overflow Detection
