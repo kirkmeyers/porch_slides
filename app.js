@@ -3864,6 +3864,43 @@ async function decompressDeckPayload(hashStr) {
   return JSON.parse(jsonStr);
 }
 
+// Compress outline text into a URL-safe Base64 DEFLATE string via JSZip (same helper pattern)
+export async function compressOutlinePayload(text) {
+  const zip = new JSZip();
+  zip.file('d', text);
+  const b64 = await zip.generateAsync({
+    type: 'base64',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 9 }
+  });
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Decompress URL-safe Base64 DEFLATE string back to outline text
+export async function decompressOutlinePayload(hashStr) {
+  let b64 = hashStr.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4 !== 0) {
+    b64 += '=';
+  }
+  const zip = await JSZip.loadAsync(b64, { base64: true });
+  const file = zip.file('d');
+  if (!file) throw new Error('Invalid outline payload file');
+  return await file.async('string');
+}
+
+// Helper to generate a full #outline= URL from plain text
+export async function encodeOutlineLink(text, baseUrl) {
+  const base = baseUrl || (typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '');
+  const hash = await compressOutlinePayload(text);
+  return `${base}#outline=${hash}`;
+}
+
+if (typeof window !== 'undefined') {
+  window.encodeOutlineLink = encodeOutlineLink;
+  window.compressOutlinePayload = compressOutlinePayload;
+  window.decompressOutlinePayload = decompressOutlinePayload;
+}
+
 // Generate and share review link
 async function handleShareDraft() {
   if (!slidesData || slidesData.length === 0) {
@@ -3983,10 +4020,38 @@ function openProofSheet() {
   }
 }
 
-// Check and load review deck from URL hash (#review=... or #deck=...)
+// Check and load review deck or outline from URL hash (#review=..., #deck=..., or #outline=...)
 async function checkUrlHashForReview() {
   const hash = window.location.hash;
   if (!hash) return;
+
+  if (hash.startsWith('#outline=')) {
+    const encoded = hash.slice('#outline='.length);
+    if (!encoded) return;
+
+    try {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      const text = await decompressOutlinePayload(encoded);
+      const { settings, bodyText } = parseRequestSettings(text);
+      applyRequestSettings(settings);
+
+      if (rawInputEl) {
+        rawInputEl.value = bodyText;
+      }
+
+      const parsed = parseRawInput(bodyText);
+      const count = parsed.length;
+
+      await generateSlides();
+      showToast(`Loaded ${count} request${count === 1 ? '' : 's'} from outline link`);
+    } catch (err) {
+      console.error('Failed to parse #outline link hash:', err);
+      showToast('⚠️ Could not load outline link. Data may be incomplete or invalid.');
+    }
+    return;
+  }
   
   if (hash.startsWith('#review=') || hash.startsWith('#deck=')) {
     const encoded = hash.replace(/^#(review|deck)=/, '');
