@@ -91,20 +91,33 @@ Plain UTF-8 text with one slide request per line. Optional settings lines at the
 # title: Idolatry Week 7      (shown in the UI only, not used in file names)
 Slide 1: Jett Picture (attached)
 Slide 2: Mark 9:9-13 (ESV)
-Slide 3: Romans 8:18
+Slide 3: Romans 8:18 (NIV)
+> 18 For I consider that our present sufferings are not worth comparing with the glory that will be revealed in us.
 Slide 4: Theology of Suffering
 Slide 5: Charles Spurgeon – "I have learned to kiss the wave that throws me against the Rock of Ages."
 ```
 
 #### Rules:
 - Lines starting with `#` are settings or comments, never slides. Unknown `# key:` lines are ignored.
+- Lines starting with `>` directly following a scripture line provide manuscript-supplied verse text for that slide (one verse per line with its verse number). Supplied text takes the place of API fetching for that slide and marks the slide with an amber verification badge. Orphan `>` lines that do not follow a scripture line are ignored with a warning toast.
 - Theme and translation settings are applied to dropdowns **before** parsing scripture (ensuring theme-specific casing rules apply).
 - Unrecognized theme or translation values preserve the current dropdown selection and display a warning toast naming the invalid value.
 - Request files can be loaded by clicking **Load requests** or by dragging and dropping the `.txt` file onto the outline text box or input panel. If text is already present, a confirmation prompt prevents accidental replacement.
 
 ---
 
-### 2. Communicator Naming in Exported Files
+### 2. Scripture Text Needed & Verification Badges
+
+- **Red Badge (`⚠️ Text needed: NIV` / `Text needed: fetch failed`)**:
+  The Bolls Bible API no longer serves the NIV translation. When an NIV slide is requested (or if an API fetch fails), porch_slides renders the slide with its reference and translation label (e.g. `ROMANS 8:18 (NIV)`) and marks it with a red "Text needed" badge. In the Slide Editor, a **Paste verse text (NIV)** input box allows pasting the verse text (e.g. `18 For I consider...`). Once applied, the verse is laid out with standard line measurement, context window handling, and poetry/prose formatting.
+- **Amber Badge (`⚠️ Pasted text: verify`)**:
+  Shown whenever verse text was supplied via `>` lines in the request file / outline link or pasted in the editor. Appears in the grid view, Slide Editor banner, and proof sheet, but is never drawn on exported 4K PNGs.
+- **Export Guard**:
+  If any slide still needs verse text when clicking **All Slides Images (zip)** or **Export for ProPresenter**, a confirmation dialog lists the unresolved slides (e.g. `"1 slide still needs verse text: ROMANS 8:18 (NIV)"`). If exported without pasting, exported slides render only their reference and divider with no placeholder or notice text.
+
+---
+
+### 3. Communicator Naming in Exported Files
 When the **Communicator** field is filled (manually or via `# communicator:`), the communicator's **last name** is automatically included in every exported file.
 
 The last name is extracted from the last word of the field, automatically skipping suffixes like `Jr.`, `Sr.`, `II`, `III`, and `IV` (`"Jane Smith"` → `Smith`, `"John Doe Jr."` → `Doe`).
@@ -121,7 +134,7 @@ The last name is extracted from the last word of the field, automatically skippi
 
 ---
 
-### 3. Load From Link (`#outline=<payload>`)
+### 4. Load From Link (`#outline=<payload>`)
 The app supports opening directly with pre-loaded requests via a URL hash parameter:
 
 ```text
