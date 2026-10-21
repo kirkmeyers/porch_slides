@@ -963,8 +963,8 @@ function parseRawInput(text) {
   // Regex to strip slide prefixes: "Slide 1:", "Slide 1 :", "Slide:", "Slide :"
   const slidePrefixRegex = /^Slide\s*(?:\d+\s*)?:\s*/i;
   
-  // Scripture Regex: relaxed/tolerant and space-tolerant
-  const scriptureRegex = /^([1-3]?\s*[^:\n]+?)\s+(\d+)\s*:\s*([\d\s\-,;]+)(?:\s*(?:\(([A-Za-z0-9\s]+)\)|([A-Za-z0-9\s]+)))?$/i;
+  // Scripture Regex: relaxed/tolerant and space-tolerant (accepts en-dash \u2013 and em-dash \u2014 in verse part)
+  const scriptureRegex = /^([1-3]?\s*[^:\n]+?)\s+(\d+)\s*:\s*([\d\s\-,;–—]+)(?:\s*(?:\(([A-Za-z0-9\s]+)\)|([A-Za-z0-9\s]+)))?$/i;
   
   // Quote Regex: Author – "Quote" or Author - Quote (with optional quotes and tolerance for inner quotes)
   const quoteRegex = /^([^-–—\n]+?)\s*[-–—]\s*["“'‘]?([\s\S]+?)["”'’]?\s*$/;
@@ -1011,7 +1011,7 @@ function parseRawInput(text) {
     
     // Fallback for scripture lines that failed the anchored regex but have #:# pattern
     if (!matchedScripture && hasChapterVersePattern) {
-      const unanchoredRegex = /([1-3]?\s*[^:\n]+?)\s+(\d+)\s*:\s*([\d\s\-,;]+)(?:\s*(?:\(([A-Za-z0-9\s]+)\)|([A-Za-z0-9\s]+)))?/i;
+      const unanchoredRegex = /([1-3]?\s*[^:\n]+?)\s+(\d+)\s*:\s*([\d\s\-,;–—]+)(?:\s*(?:\(([A-Za-z0-9\s]+)\)|([A-Za-z0-9\s]+)))?/i;
       const fallbackMatch = cleanLine.match(unanchoredRegex);
       if (fallbackMatch) {
         const bookRaw = fallbackMatch[1].trim();
@@ -1081,8 +1081,10 @@ function parseRawInput(text) {
 }
 
 function parseVersesString(verseStr) {
+  // Normalize en-dash and em-dash to regular hyphen in verse part
+  const normalized = (verseStr || '').replace(/[–—]/g, '-');
   // Parses strings like "30-35", "60; 66", "23", "7-8"
-  const parts = verseStr.split(/[;,]/);
+  const parts = normalized.split(/[;,]/);
   const verses = [];
   
   for (let part of parts) {
