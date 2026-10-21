@@ -1231,6 +1231,38 @@ function isUsableChapterData(data) {
   return true;
 }
 
+// Clean up study markers for specific translations (e.g. KJV Strong's numbers, CSB17 footnotes)
+function cleanChapterStudyMarkers(data, translation) {
+  if (!Array.isArray(data) || !translation) return data;
+  const t = translation.trim().toUpperCase();
+
+  if (t === 'KJV') {
+    return data.map(v => {
+      if (!v || !v.text) return v;
+      // Strip Strong's tags <S>...</S> and their contents, and any other HTML tags
+      let cleaned = v.text.replace(/<S[\s\S]*?<\/S>/gi, '');
+      cleaned = cleaned.replace(/<[^>]+>/g, '');
+      cleaned = cleaned.replace(/[ \t]+/g, ' ').trim();
+      return { ...v, text: cleaned };
+    });
+  }
+
+  if (t === 'CSB' || t === 'CSB17') {
+    return data.map(v => {
+      if (!v || !v.text) return v;
+      // Strip <sup>...</sup> footnote tags and bare circled letters ⓐ-ⓩ, Ⓐ-Ⓩ
+      let cleaned = v.text.replace(/<sup[\s\S]*?<\/sup>/gi, '');
+      cleaned = cleaned.replace(/<[^>]+>/g, '');
+      cleaned = cleaned.replace(/[\u24D0-\u24E9\u24B6-\u24CF]/gu, '');
+      cleaned = cleaned.replace(/\[[\u24D0-\u24E9\u24B6-\u24CF]\]/gu, '');
+      cleaned = cleaned.replace(/[ \t]+/g, ' ').trim();
+      return { ...v, text: cleaned };
+    });
+  }
+
+  return data;
+}
+
 // 7. Bible API fetching with Cache and 429 Retry
 async function fetchChapter(bookId, chapter, translation) {
   let activeTranslation = translation || translationEl.value;
@@ -1274,8 +1306,9 @@ async function fetchChapter(bookId, chapter, translation) {
         return null;
       }
 
-      chapterCache[cacheKey] = data;
-      return data;
+      const cleanedData = cleanChapterStudyMarkers(data, activeTranslation);
+      chapterCache[cacheKey] = cleanedData;
+      return cleanedData;
     } catch (error) {
       if (attempt < maxRetries && error.message && error.message.includes('429')) {
         await new Promise(r => setTimeout(r, backoffDelays[attempt]));
