@@ -984,6 +984,20 @@ function parseRawInput(text) {
     // Strip slide prefix
     let cleanLine = line.replace(slidePrefixRegex, '').trim();
     if (!cleanLine) continue;
+
+    // Handle supplied verse lines starting with ">"
+    if (cleanLine.startsWith('>')) {
+      const prev = parsed.length > 0 ? parsed[parsed.length - 1] : null;
+      if (!prev || prev.type !== 'scripture') {
+        showToast('⚠️ Supplied verse text line (>) ignored: does not follow a scripture request.');
+        continue;
+      }
+      if (!prev.suppliedLines) {
+        prev.suppliedLines = [];
+      }
+      prev.suppliedLines.push(cleanLine);
+      continue;
+    }
     
     // Check if there's a #:# pattern (colon surrounded by digits with optional spaces)
     const hasChapterVersePattern = /\d+\s*:\s*\d+/.test(cleanLine);
@@ -1615,8 +1629,8 @@ function coalesceScriptureRequests(parsedRequests) {
   const coalesced = [];
   for (let i = 0; i < parsedRequests.length; i++) {
     const item = parsedRequests[i];
-    if (item.type !== 'scripture') {
-      coalesced.push(item);
+    if (item.type !== 'scripture' || (item.suppliedLines && item.suppliedLines.length > 0)) {
+      coalesced.push({ ...item, verses: item.verses ? [...item.verses] : [] });
       continue;
     }
     
@@ -1624,6 +1638,7 @@ function coalesceScriptureRequests(parsedRequests) {
     if (
       prev &&
       prev.type === 'scripture' &&
+      (!prev.suppliedLines || prev.suppliedLines.length === 0) &&
       prev.bookId === item.bookId &&
       prev.chapter === item.chapter &&
       prev.translation === item.translation
@@ -1716,6 +1731,78 @@ async function buildSlides(parsedRequests) {
           unrecognizedTranslationCode = translation;
           targetTranslation = globalTranslation;
         }
+      }
+      
+      // Check if verse text was supplied in request file (lines starting with >)
+      if (item.suppliedLines && item.suppliedLines.length > 0) {
+        const rawPasted = item.suppliedLines.join('\n');
+        const suppliedVerses = parsePastedVerseLines(rawPasted, verses[0]);
+        const isPoetic = isPoeticBook(bookId, bookName);
+        const hasEmbeddedPoetry = !isPoetic && suppliedVerses.some(v => isEmbeddedPoetryVerse(bookId, chapter, v.verse, v.text));
+        const slideFormat = isPoetic ? 'poetry' : (hasEmbeddedPoetry ? 'mixed' : 'prose');
+        const isPoetry = (slideFormat === 'poetry');
+        const displayTrans = translation ? translation.toUpperCase() : getTranslationDisplayName(targetTranslation);
+
+        let vIdx = 0;
+        while (vIdx < verses.length) {
+          const targetVerse = verses[vIdx];
+          const targetVerseObj = suppliedVerses.find(v => v.verse === targetVerse) || suppliedVerses[0];
+          if (!targetVerseObj) {
+            vIdx++;
+            continue;
+          }
+
+          let formattedSingle = targetVerseObj.text.trim();
+          if (isPoetry) {
+            formattedSingle = formatPoeticVerse(formattedSingle);
+          } else if (slideFormat === 'mixed' || isEmbeddedPoetryVerse(bookId, chapter, targetVerse, formattedSingle)) {
+            formattedSingle = detectAndFormatEmbeddedPoetry(formattedSingle, targetVerse, bookId, chapter).text;
+          }
+          const singleTestHtml = `<span class="highlight"><sup>${targetVerse}</sup>${formattedSingle}</span>`;
+
+          let finalSlideText;
+          let blockStart = targetVerse;
+          let blockEnd = targetVerse;
+
+          if (measureLines(singleTestHtml, isPoetry, 'scripture') > maxLines) {
+            finalSlideText = preventOrphans(singleTestHtml);
+          } else {
+            let block = fillBlockToExactLines(suppliedVerses, targetVerse, targetVerse, isPoetry, maxLines, slideFormat, bookId, chapter);
+            if (block) {
+              finalSlideText = preventOrphans(buildPassageHtml(block.wholeVerses, targetVerse, block.partialVerseObj, isPoetry, slideFormat, bookId, chapter));
+              blockStart = block.startVerse;
+              blockEnd = block.endVerse;
+            } else {
+              finalSlideText = preventOrphans(singleTestHtml);
+            }
+          }
+
+          slides.push({
+            type: 'scripture',
+            text: finalSlideText,
+            refBook: bookName.toUpperCase(),
+            refVerse: `${chapter}:${targetVerse}`,
+            rawText: finalSlideText,
+            bookId: bookId,
+            bookName: bookName,
+            chapter: chapter,
+            targetVerse: targetVerse,
+            translation: targetTranslation,
+            displayTranslation: displayTrans,
+            hasTranslationWarning: hasTranslationWarning,
+            unrecognizedTranslation: unrecognizedTranslationCode,
+            blockStart: blockStart,
+            blockEnd: blockEnd,
+            format: slideFormat,
+            isPoetry: isPoetry,
+            isPastedText: true,
+            pastedRawInput: rawPasted,
+            suppliedChapterData: suppliedVerses
+          });
+
+          vIdx++;
+        }
+        continue;
       }
       
       const chapterData = await fetchChapter(bookId, chapter, targetTranslation);
