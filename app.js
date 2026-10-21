@@ -123,9 +123,139 @@ const gridExportBar = document.getElementById('grid-export-bar');
 const btnGridExport = document.getElementById('btn-grid-export');
 const btnGridExportProPresenter = document.getElementById('btn-grid-export-propresenter');
 const btnLoadSample = document.getElementById('btn-load-sample');
+const btnLoadRequests = document.getElementById('btn-load-requests');
+const fileInputRequests = document.getElementById('file-input-requests');
+const communicatorInputEl = document.getElementById('communicator-name');
+const deckTitleBadge = document.getElementById('deck-title-badge');
 const layoutDetailsEl = document.getElementById('details-layout-settings');
 const fontDetailsEl = document.getElementById('details-font-settings');
 const slideCountEl = document.getElementById('slide-count');
+
+let currentDeckTitle = '';
+
+// Update title display in UI
+function updateDeckTitleUI(title) {
+  currentDeckTitle = title ? title.trim() : '';
+  if (deckTitleBadge) {
+    if (currentDeckTitle) {
+      deckTitleBadge.textContent = currentDeckTitle;
+      deckTitleBadge.style.display = 'inline-block';
+    } else {
+      deckTitleBadge.textContent = '';
+      deckTitleBadge.style.display = 'none';
+    }
+  }
+}
+
+// Extract communicator's last name for exported file names, skipping suffixes like Jr., Sr., II, III, IV
+function extractCommunicatorLastName(fullName) {
+  if (!fullName || typeof fullName !== 'string') return '';
+  const trimmed = fullName.trim();
+  if (!trimmed) return '';
+
+  const suffixRegex = /^(jr\.?|sr\.?|ii|iii|iv|v|vi)$/i;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  let candidate = '';
+  for (let i = words.length - 1; i >= 0; i--) {
+    const cleanWord = words[i].replace(/[,\.]/g, '').trim();
+    if (!cleanWord) continue;
+    if (!suffixRegex.test(cleanWord)) {
+      candidate = cleanWord;
+      break;
+    }
+  }
+
+  // Strip characters that aren't safe in file names
+  return candidate.replace(/[/\\?%*:|"<>]/g, '').trim();
+}
+
+// Parse request file settings lines starting with "#"
+function parseRequestSettings(text) {
+  const lines = text.split('\n');
+  const settings = {
+    theme: null,
+    translation: null,
+    communicator: null,
+    title: null
+  };
+  const bodyLines = [];
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) {
+      const match = trimmed.match(/^#\s*([a-zA-Z0-9_\-]+)\s*:\s*(.*)$/);
+      if (match) {
+        const key = match[1].toLowerCase();
+        const value = match[2].trim();
+        if (key === 'theme') {
+          settings.theme = value;
+        } else if (key === 'translation') {
+          settings.translation = value;
+        } else if (key === 'communicator') {
+          settings.communicator = value;
+        } else if (key === 'title') {
+          settings.title = value;
+        }
+      }
+    } else {
+      bodyLines.push(line);
+    }
+  }
+
+  let bodyText = bodyLines.join('\n');
+  bodyText = bodyText.replace(/^\s*\n/, '').trimEnd();
+
+  return { settings, bodyText };
+}
+
+// Apply request settings to UI before parsing slides
+function applyRequestSettings(settings) {
+  if (!settings) return;
+
+  // Theme: porch-generic | lovers-series | inner-life
+  if (settings.theme !== null) {
+    const rawTheme = settings.theme.toLowerCase().trim();
+    const themeMap = {
+      'porch-generic': 'porch-generic',
+      'lovers-series': 'lovers-series',
+      'inner-life': 'inner-life',
+      'porch': 'porch-generic',
+      'generic': 'porch-generic',
+      'lovers': 'lovers-series',
+      'inner_life': 'inner-life',
+      'the-inner-life': 'inner-life'
+    };
+    const mappedTheme = themeMap[rawTheme];
+    if (mappedTheme && slideThemeEl) {
+      slideThemeEl.value = mappedTheme;
+      updateCalibrationForTheme();
+    } else {
+      showToast(`⚠️ Unrecognized theme: "${settings.theme}". Keeping current theme.`);
+    }
+  }
+
+  // Translation: any code TRANSLATION_MAP accepts
+  if (settings.translation !== null) {
+    const rawTrans = settings.translation.toLowerCase().trim();
+    const mappedTrans = TRANSLATION_MAP[rawTrans];
+    if (mappedTrans && translationEl) {
+      translationEl.value = mappedTrans;
+    } else {
+      showToast(`⚠️ Unrecognized translation: "${settings.translation}". Keeping current translation.`);
+    }
+  }
+
+  // Communicator: Jane Smith
+  if (settings.communicator !== null && communicatorInputEl) {
+    communicatorInputEl.value = settings.communicator;
+  }
+
+  // Title: UI display only, not in file names
+  if (settings.title !== null) {
+    updateDeckTitleUI(settings.title);
+  }
+}
 
 // Persist collapsible spin-down accordion state
 if (layoutDetailsEl) {
@@ -841,7 +971,7 @@ function parseRawInput(text) {
   
   for (let line of lines) {
     line = line.trim();
-    if (!line) continue; // Skip empty lines
+    if (!line || line.startsWith('#')) continue; // Skip empty lines and settings/comments
     
     // Strip slide prefix
     let cleanLine = line.replace(slidePrefixRegex, '').trim();
@@ -2969,7 +3099,35 @@ async function downloadActiveSlide() {
     progressPercentage.textContent = '100%';
     progressStatus.textContent = 'Downloading 4K transparent PNG...';
 
-    const filename = getSlideFilename(slide, activeSlideIndex);
+    let filename;
+    const communicatorRaw = communicatorInputEl ? communicatorInputEl.value : '';
+    const communicatorLastName = extractCommunicatorLastName(communicatorRaw);
+    if (communicatorLastName) {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const dateStr = `${year}${month}${day}`;
+      const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
+      const themeTitle = themeVal === 'inner-life' ? 'Inner_Life' : (themeVal === 'lovers-series' ? 'Lovers' : 'Porch');
+
+      let filenameSuffix = '';
+      if (slide.type === 'scripture') {
+        const bookClean = (slide.refBook || 'scripture').toLowerCase().replace(/\s+/g, '_');
+        const verseClean = (slide.refVerse || '').replace(/:/g, '_').replace(/[–—]/g, '-');
+        filenameSuffix = `${bookClean}_${verseClean}`;
+      } else {
+        const raw = slide.text || slide.rawText || 'point';
+        const titleClean = raw.toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .substring(0, 20)
+          .replace(/^_+|_+$/g, '');
+        filenameSuffix = `point_${titleClean || 'slide'}`;
+      }
+      filename = `${dateStr} - ${themeTitle} - ${communicatorLastName} - ${filenameSuffix}.png`;
+    } else {
+      filename = getSlideFilename(slide, activeSlideIndex);
+    }
     const downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -3393,6 +3551,9 @@ btnExport.addEventListener('click', async () => {
 
     const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
     const themeTitle = themeVal === 'inner-life' ? 'Inner_Life' : (themeVal === 'lovers-series' ? 'Lovers' : 'Porch');
+    const communicatorRaw = communicatorInputEl ? communicatorInputEl.value : '';
+    const communicatorLastName = extractCommunicatorLastName(communicatorRaw);
+    const communicatorPart = communicatorLastName ? ` - ${communicatorLastName}` : '';
 
     if (slidesData.length === 1) {
       const slide = slidesData[0];
@@ -3406,7 +3567,7 @@ btnExport.addEventListener('click', async () => {
       let filenameSuffix = '';
       if (slide.type === 'scripture') {
         const bookClean = slide.refBook.toLowerCase().replace(/\s+/g, '_');
-        const verseClean = slide.refVerse.replace(/:/g, '_');
+        const verseClean = slide.refVerse.replace(/:/g, '_').replace(/[–—]/g, '-');
         filenameSuffix = `${bookClean}_${verseClean}`;
       } else {
         const titleClean = slide.rawText.toLowerCase()
@@ -3416,7 +3577,7 @@ btnExport.addEventListener('click', async () => {
         filenameSuffix = `point_${titleClean}`;
       }
       
-      const filename = `${dateStr} - ${themeTitle} - ${filenameSuffix}.png`;
+      const filename = `${dateStr} - ${themeTitle}${communicatorPart} - ${filenameSuffix}.png`;
       const downloadUrl = URL.createObjectURL(blob);
       
       const link = document.createElement('a');
@@ -3454,7 +3615,7 @@ btnExport.addEventListener('click', async () => {
       
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `${dateStr} - ${themeTitle}.zip`;
+      link.download = `${dateStr} - ${themeTitle}${communicatorPart}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -3509,7 +3670,10 @@ if (btnExportProPresenter) {
 
       const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
       const themeTitle = themeVal === 'inner-life' ? 'The Inner Life' : (themeVal === 'lovers-series' ? 'Lovers' : 'Porch');
-      const presentationName = `${dateStr} - ${themeTitle}`;
+      const communicatorRaw = communicatorInputEl ? communicatorInputEl.value : '';
+      const communicatorLastName = extractCommunicatorLastName(communicatorRaw);
+      const communicatorPart = communicatorLastName ? ` - ${communicatorLastName}` : '';
+      const presentationName = `${dateStr} - ${themeTitle}${communicatorPart}`;
 
       const bundleBlob = await exportProPresenterBundle({
         slidesData,
@@ -3626,6 +3790,7 @@ async function handleShareDraft() {
       v: 1,
       theme: slideThemeEl ? slideThemeEl.value : 'generic',
       translation: translationEl ? translationEl.value : 'esv',
+      communicator: communicatorInputEl ? communicatorInputEl.value.trim() : '',
       outline: rawInputEl ? rawInputEl.value : '',
       slides: slidesData
     };
@@ -3660,7 +3825,14 @@ function openProofSheet() {
   const transName = translationEl ? translationEl.value.toUpperCase() : 'ESV';
   
   if (proofHeaderMeta) {
-    proofHeaderMeta.textContent = `Theme: ${themeName} | Translation: ${transName} | ${slidesData.length} Slides`;
+    const metaParts = [];
+    if (currentDeckTitle) metaParts.push(`Title: ${currentDeckTitle}`);
+    const communicator = communicatorInputEl ? communicatorInputEl.value.trim() : '';
+    if (communicator) metaParts.push(`Communicator: ${communicator}`);
+    metaParts.push(`Theme: ${themeName}`);
+    metaParts.push(`Translation: ${transName}`);
+    metaParts.push(`${slidesData.length} Slides`);
+    proofHeaderMeta.textContent = metaParts.join(' | ');
   }
   
   let html = '';
@@ -3746,6 +3918,9 @@ async function checkUrlHashForReview() {
         }
         if (payload.translation && translationEl) {
           translationEl.value = payload.translation;
+        }
+        if (payload.communicator !== undefined && communicatorInputEl) {
+          communicatorInputEl.value = payload.communicator || '';
         }
         if (payload.outline && rawInputEl && !rawInputEl.value) {
           rawInputEl.value = payload.outline;
