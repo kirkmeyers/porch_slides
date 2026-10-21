@@ -315,6 +315,14 @@ const activeSlideTranslationContainer = document.getElementById('active-slide-tr
 const activeSlideFormatEl = document.getElementById('active-slide-format');
 const activeSlideFormatContainer = document.getElementById('active-slide-format-container');
 
+const activeSlideTextNeededWarning = document.getElementById('active-slide-textneeded-warning');
+const activeSlideTextNeededWarningText = document.getElementById('active-slide-textneeded-warning-text');
+const activeSlidePastedWarning = document.getElementById('active-slide-pasted-warning');
+const pasteVerseContainer = document.getElementById('paste-verse-container');
+const pasteVerseLabel = document.getElementById('paste-verse-label');
+const pasteVerseInput = document.getElementById('paste-verse-input');
+const btnApplyPastedVerse = document.getElementById('btn-apply-pasted-verse');
+
 const editorQuoteContainer = slideCanvasPreview.querySelector('.slide-quote-container');
 const editorQuoteTextEl = slideCanvasPreview.querySelector('.slide-quote-text');
 const editorQuoteAuthorEl = slideCanvasPreview.querySelector('.slide-quote-author');
@@ -1148,6 +1156,49 @@ function isNivTranslation(translation) {
   return t === 'NIV' || t === 'NIV2011' || t === 'NIV 84' || t === 'NIV84';
 }
 
+// Get display name for translation
+function getTranslationDisplayName(translationCode) {
+  if (!translationCode) return 'ESV';
+  const t = translationCode.trim().toUpperCase();
+  if (t === 'NIV2011') return 'NIV';
+  if (t === 'NIV') {
+    if (typeof translationEl !== 'undefined' && translationEl && translationEl.value === 'NIV') {
+      const opt = translationEl.options[translationEl.selectedIndex];
+      if (opt && opt.text) return opt.text;
+    }
+    return 'NIV 84';
+  }
+  if (t === 'CSB17') return 'CSB';
+  if (t === 'NASB_1995') return 'NASB 1995';
+  return t;
+}
+
+// Parse pasted verse lines into an array of { verse: number, text: string }
+function parsePastedVerseLines(text, fallbackVerse) {
+  if (!text) return [];
+  const lines = text.split('\n');
+  const verses = [];
+  for (let rawLine of lines) {
+    let line = rawLine.trim().replace(/^>\s*/, '');
+    if (!line) continue;
+    const match = line.match(/^(\d+)[\.:\s\-)]+\s*(.*)$/);
+    if (match) {
+      const vNum = parseInt(match[1], 10);
+      const vText = match[2].trim();
+      if (vText) {
+        verses.push({ verse: vNum, text: vText });
+      }
+    } else {
+      if (verses.length > 0) {
+        verses[verses.length - 1].text += ' ' + line;
+      } else if (fallbackVerse != null) {
+        verses.push({ verse: fallbackVerse, text: line });
+      }
+    }
+  }
+  return verses;
+}
+
 // Check if chapter data is usable scripture
 function isUsableChapterData(data) {
   if (!Array.isArray(data) || data.length === 0) return false;
@@ -1364,7 +1415,8 @@ function compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoet
 // Compilation helper for Bible Passage HTML
 function compilePassageHtml(chapterData, targetVerse, contextSize, isPoetry = false, slideFormat = null, bookId = null, chapter = null) {
   const start = Math.max(1, targetVerse - contextSize);
-  const end = Math.min(chapterData.length, targetVerse + contextSize);
+  const maxVerseInChapter = (Array.isArray(chapterData) && chapterData.length > 0) ? Math.max(...chapterData.map(x => x.verse)) : targetVerse;
+  const end = Math.min(maxVerseInChapter, targetVerse + contextSize);
   return compilePassageHtmlForBlock(chapterData, targetVerse, start, end, isPoetry, slideFormat, bookId, chapter);
 }
 
@@ -1380,8 +1432,9 @@ function fillBlockToExactLines(chapterData, targetVerse, startVerse, isPoetry = 
   // Step 1: Collect whole verses starting from startVerse as long as line count <= targetLines
   const wholeVerses = [];
   let currentEndVerse = startVerse;
+  const maxVerseInChapter = (Array.isArray(chapterData) && chapterData.length > 0) ? Math.max(...chapterData.map(x => x.verse)) : startVerse;
 
-  for (let v = startVerse; v <= chapterData.length; v++) {
+  for (let v = startVerse; v <= maxVerseInChapter; v++) {
     const vObj = chapterData.find(x => x.verse === v);
     if (!vObj) break;
 
@@ -1667,18 +1720,31 @@ async function buildSlides(parsedRequests) {
       
       const chapterData = await fetchChapter(bookId, chapter, targetTranslation);
       if (!chapterData) {
-        slides.push({
-          type: 'scripture',
-          text: `<span class="highlight">[Error: Could not fetch ${bookName} ${chapter}]</span>`,
-          refBook: bookName.toUpperCase(),
-          refVerse: `${chapter}:${verses.join(', ')}`,
-          rawText: `[Error: Could not fetch ${bookName} ${chapter}]`,
-          bookId: bookId,
-          bookName: bookName,
-          chapter: chapter,
-          targetVerse: verses[0] || 1,
-          translation: targetTranslation
-        });
+        const isNiv = isNivTranslation(targetTranslation) || isNivTranslation(translation);
+        const displayTrans = translation ? translation.toUpperCase() : getTranslationDisplayName(targetTranslation);
+        const textNeededReason = isNiv ? displayTrans : 'fetch failed';
+
+        for (const targetVerse of verses) {
+          slides.push({
+            type: 'scripture',
+            isTextNeeded: true,
+            textNeededReason: textNeededReason,
+            text: `<span class="highlight">[Verse text needed: ${displayTrans}]</span>`,
+            refBook: bookName.toUpperCase(),
+            refVerse: `${chapter}:${targetVerse}`,
+            rawText: `[Verse text needed: ${displayTrans}]`,
+            bookId: bookId,
+            bookName: bookName,
+            chapter: chapter,
+            targetVerse: targetVerse,
+            translation: targetTranslation,
+            displayTranslation: displayTrans,
+            hasTranslationWarning: hasTranslationWarning,
+            unrecognizedTranslation: unrecognizedTranslationCode,
+            isPoetry: isPoeticBook(bookId, bookName),
+            format: isPoeticBook(bookId, bookName) ? 'poetry' : 'prose'
+          });
+        }
         continue;
       }
       
@@ -1727,6 +1793,7 @@ async function buildSlides(parsedRequests) {
               chapter: chapter,
               targetVerse: targetVerse,
               translation: targetTranslation,
+              displayTranslation: translation ? translation.toUpperCase() : getTranslationDisplayName(targetTranslation),
               hasTranslationWarning: hasTranslationWarning,
               unrecognizedTranslation: unrecognizedTranslationCode,
               format: slideFormat,
@@ -1829,6 +1896,7 @@ async function buildSlides(parsedRequests) {
           chapter: chapter,
           targetVerse: targetVerse,
           translation: targetTranslation,
+          displayTranslation: translation ? translation.toUpperCase() : getTranslationDisplayName(targetTranslation),
           hasTranslationWarning: hasTranslationWarning,
           unrecognizedTranslation: unrecognizedTranslationCode,
           blockStart: currentBlock.startVerse,
@@ -1938,6 +2006,12 @@ function renderSlideDeck() {
     // Bottom Overlay Info bar
     const infoBar = document.createElement('div');
     infoBar.className = 'grid-slide-info';
+    const textNeededBadge = slide.isTextNeeded
+      ? `<span class="grid-slide-danger-flag" title="Verse text needed: click slide to paste verse text">⚠️ Text needed: ${slide.textNeededReason || 'NIV'}</span>`
+      : '';
+    const pastedBadge = (slide.isPastedText && !slide.isTextNeeded)
+      ? `<span class="grid-slide-warning-flag" title="Pasted text: verify against a published Bible">⚠️ Pasted text: verify</span>`
+      : '';
     const casingBadge = slide.hasCasingWarning 
       ? `<span class="grid-slide-casing-flag" title="Auto-cased to sentence case: click slide to review reverential capitalization">⚠️ Check Casing</span>` 
       : '';
@@ -1952,6 +2026,8 @@ function renderSlideDeck() {
       : '';
     infoBar.innerHTML = `
       <span class="grid-slide-num">Slide ${idx + 1}</span>
+      ${textNeededBadge}
+      ${pastedBadge}
       ${casingBadge}
       ${formatBadge}
       ${translationBadge}
@@ -1974,6 +2050,9 @@ function renderSlideDeck() {
 }
 
 async function getChapterDataForSlide(slide) {
+  if (slide.suppliedChapterData && Array.isArray(slide.suppliedChapterData) && slide.suppliedChapterData.length > 0) {
+    return slide.suppliedChapterData;
+  }
   let bookId = slide.bookId;
   let chapter = slide.chapter;
   let translation = slide.translation || translationEl.value;
@@ -2000,7 +2079,7 @@ function updateContextButtonStates(slide) {
   const btnRemoveLower = document.getElementById('btn-remove-lower-context');
   if (!btnAddUpper || !btnAddLower) return;
 
-  if (!slide || slide.type !== 'scripture') {
+  if (!slide || slide.type !== 'scripture' || slide.isTextNeeded) {
     btnAddUpper.disabled = true;
     btnAddLower.disabled = true;
     if (btnRemoveUpper) btnRemoveUpper.disabled = true;
@@ -2343,8 +2422,9 @@ async function addLowerContext() {
     const currentMaxVerse = currentVerses.length > 0 ? Math.max(...currentVerses) : (slide.blockEnd || slide.targetVerse || 1);
     const targetLowerVerse = currentMaxVerse + 1;
 
-    if (targetLowerVerse > chapterData.length) {
-      alert(`Already at the last verse of the chapter (Verse ${chapterData.length}).`);
+    const maxVerseInChapter = (Array.isArray(chapterData) && chapterData.length > 0) ? Math.max(...chapterData.map(x => x.verse)) : currentMaxVerse;
+    if (targetLowerVerse > maxVerseInChapter) {
+      alert(`Already at the last verse of the chapter (Verse ${maxVerseInChapter}).`);
       return;
     }
 
@@ -2560,6 +2640,40 @@ function renderActiveSlide() {
       activeSlideCrossChapterWarning.style.display = 'flex';
     } else {
       activeSlideCrossChapterWarning.style.display = 'none';
+    }
+  }
+
+  if (activeSlideTextNeededWarning) {
+    if (slide.type === 'scripture' && slide.isTextNeeded) {
+      if (activeSlideTextNeededWarningText) {
+        activeSlideTextNeededWarningText.innerHTML = `<strong>Text needed:</strong> ${slide.textNeededReason || 'NIV'} verse text is required for this slide.`;
+      }
+      activeSlideTextNeededWarning.style.display = 'flex';
+    } else {
+      activeSlideTextNeededWarning.style.display = 'none';
+    }
+  }
+
+  if (activeSlidePastedWarning) {
+    if (slide.type === 'scripture' && slide.isPastedText && !slide.isTextNeeded) {
+      activeSlidePastedWarning.style.display = 'flex';
+    } else {
+      activeSlidePastedWarning.style.display = 'none';
+    }
+  }
+
+  if (pasteVerseContainer) {
+    if (slide.type === 'scripture' && (slide.isTextNeeded || slide.isPastedText || isNivTranslation(slide.translation))) {
+      pasteVerseContainer.style.display = 'block';
+      if (pasteVerseLabel) {
+        const transLabel = slide.displayTranslation || slide.translation || 'NIV';
+        pasteVerseLabel.textContent = `Paste verse text (${transLabel})`;
+      }
+      if (pasteVerseInput) {
+        pasteVerseInput.value = slide.pastedRawInput || '';
+      }
+    } else {
+      pasteVerseContainer.style.display = 'none';
     }
   }
   
@@ -2919,6 +3033,10 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
   try {
     const chapterData = await fetchChapter(slide.bookId, slide.chapter, newTranslation);
     if (chapterData) {
+      slide.isTextNeeded = false;
+      slide.isPastedText = false;
+      delete slide.suppliedChapterData;
+      delete slide.pastedRawInput;
       const isPoetic = isPoeticBook(slide.bookId, slide.bookName);
       const hasEmbeddedPoetry = !isPoetic && chapterData.some(v => isEmbeddedPoetryVerse(slide.bookId, slide.chapter, v.verse, v.text));
       const slideFormat = slide.format || (isPoetic ? 'poetry' : (hasEmbeddedPoetry ? 'mixed' : 'prose'));
@@ -2980,6 +3098,23 @@ activeSlideTranslationEl.addEventListener('change', async (e) => {
       updateContextButtonStates(slide);
       updateActiveSlideNotesPreview();
       renderSlideDeck();
+    } else {
+      const isNiv = isNivTranslation(newTranslation);
+      const displayTrans = getTranslationDisplayName(newTranslation);
+      slide.isTextNeeded = true;
+      slide.isPastedText = false;
+      delete slide.suppliedChapterData;
+      delete slide.pastedRawInput;
+      slide.textNeededReason = isNiv ? displayTrans : 'fetch failed';
+      slide.displayTranslation = displayTrans;
+      slide.text = `<span class="highlight">[Verse text needed: ${displayTrans}]</span>`;
+      slide.rawText = `[Verse text needed: ${displayTrans}]`;
+      editorBodyEl.innerHTML = slide.text;
+      activeSlideTextarea.value = formatTextForTextarea(slide.text);
+      updateContextButtonStates(slide);
+      updateActiveSlideNotesPreview();
+      renderActiveSlide();
+      renderSlideDeck();
     }
   } catch (error) {
     console.error("Failed to update translation:", error);
@@ -3035,6 +3170,120 @@ if (activeSlideFormatEl) {
     updateActiveSlideNotesPreview();
     renderSlideDeck();
   });
+}
+
+// Apply parsed verses to a slide and lay it out cleanly
+function applyVersesToSlide(slide, parsedVerses, rawPasted) {
+  if (!slide || !parsedVerses || parsedVerses.length === 0) return;
+
+  const maxLines = getMaxLines('scripture');
+  const targetVerse = slide.targetVerse || parsedVerses[0].verse;
+  const isPoetic = isPoeticBook(slide.bookId, slide.bookName);
+  const hasEmbeddedPoetry = !isPoetic && parsedVerses.some(v => isEmbeddedPoetryVerse(slide.bookId, slide.chapter, v.verse, v.text));
+  const slideFormat = isPoetic ? 'poetry' : (hasEmbeddedPoetry ? 'mixed' : 'prose');
+  const isPoetry = (slideFormat === 'poetry');
+
+  const targetObj = parsedVerses.find(v => v.verse === targetVerse) || parsedVerses[0];
+  const actualTargetVerse = targetObj ? targetObj.verse : targetVerse;
+  slide.targetVerse = actualTargetVerse;
+  if (slide.chapter) {
+    slide.refVerse = `${slide.chapter}:${actualTargetVerse}`;
+  }
+
+  let formattedSingle = targetObj.text.trim();
+  if (isPoetry) {
+    formattedSingle = formatPoeticVerse(formattedSingle);
+  } else if (slideFormat === 'mixed' || isEmbeddedPoetryVerse(slide.bookId, slide.chapter, actualTargetVerse, formattedSingle)) {
+    formattedSingle = detectAndFormatEmbeddedPoetry(formattedSingle, actualTargetVerse, slide.bookId, slide.chapter).text;
+  }
+  const singleTestHtml = `<span class="highlight"><sup>${actualTargetVerse}</sup>${formattedSingle}</span>`;
+  const singleLines = measureLines(singleTestHtml, isPoetry, 'scripture');
+
+  let finalSlideText = '';
+  let blockStart = actualTargetVerse;
+  let blockEnd = actualTargetVerse;
+
+  if (singleLines > maxLines) {
+    finalSlideText = preventOrphans(singleTestHtml);
+  } else {
+    const requestedContext = parseInt(contextWindowEl ? contextWindowEl.value : 0) || 0;
+    let bestStart = actualTargetVerse;
+    if (requestedContext > 0) {
+      for (let b = requestedContext; b >= 1; b--) {
+        const cand = actualTargetVerse - b;
+        if (parsedVerses.some(v => v.verse === cand)) {
+          const testBlock = fillBlockToExactLines(parsedVerses, actualTargetVerse, cand, isPoetry, maxLines, slideFormat, slide.bookId, slide.chapter);
+          if (testBlock && testBlock.fullVerses.includes(actualTargetVerse)) {
+            bestStart = cand;
+            break;
+          }
+        }
+      }
+    }
+
+    let block = fillBlockToExactLines(parsedVerses, actualTargetVerse, bestStart, isPoetry, maxLines, slideFormat, slide.bookId, slide.chapter);
+    if (!block || !block.fullVerses.includes(actualTargetVerse)) {
+      block = fillBlockToExactLines(parsedVerses, actualTargetVerse, actualTargetVerse, isPoetry, maxLines, slideFormat, slide.bookId, slide.chapter);
+    }
+
+    if (block) {
+      finalSlideText = preventOrphans(buildPassageHtml(block.wholeVerses, actualTargetVerse, block.partialVerseObj, isPoetry, slideFormat, slide.bookId, slide.chapter));
+      blockStart = block.startVerse;
+      blockEnd = block.endVerse;
+    } else {
+      finalSlideText = preventOrphans(singleTestHtml);
+    }
+  }
+
+  slide.text = finalSlideText;
+  slide.rawText = finalSlideText;
+  slide.isTextNeeded = false;
+  slide.isPastedText = true;
+  slide.pastedRawInput = rawPasted;
+  slide.suppliedChapterData = parsedVerses;
+  slide.format = slideFormat;
+  slide.isPoetry = isPoetry;
+  slide.blockStart = blockStart;
+  slide.blockEnd = blockEnd;
+  delete slide.customNotes;
+
+  // Propagate to any matching text-needed slides in this deck
+  slidesData.forEach((otherSlide) => {
+    if (otherSlide !== slide && otherSlide.isTextNeeded && otherSlide.bookId === slide.bookId && otherSlide.chapter === slide.chapter) {
+      const matchV = parsedVerses.find(v => v.verse === otherSlide.targetVerse);
+      if (matchV) {
+        applyVersesToSlide(otherSlide, parsedVerses, rawPasted);
+      }
+    }
+  });
+}
+
+function handleApplyPastedVerse() {
+  const slide = slidesData[activeSlideIndex];
+  if (!slide || slide.type !== 'scripture') return;
+
+  if (!pasteVerseInput) return;
+  const rawPasted = pasteVerseInput.value.trim();
+  if (!rawPasted) {
+    showToast('⚠️ Please paste verse text first.');
+    return;
+  }
+
+  const parsedVerses = parsePastedVerseLines(rawPasted, slide.targetVerse);
+  if (!parsedVerses || parsedVerses.length === 0) {
+    showToast('⚠️ Could not parse verse text. Ensure each line begins with a verse number.');
+    return;
+  }
+
+  applyVersesToSlide(slide, parsedVerses, rawPasted);
+
+  renderActiveSlide();
+  renderSlideDeck();
+  showToast('✓ Verse text applied');
+}
+
+if (btnApplyPastedVerse) {
+  btnApplyPastedVerse.addEventListener('click', handleApplyPastedVerse);
 }
 
 // 14. Editor Navigation
@@ -3588,7 +3837,8 @@ async function renderSlideToCanvas(slide, canvas) {
   slideDiv.style.position = 'relative';
   
   // Normalize layout text line-breaks for HTML2Canvas compatibility
-  const cleanText = normalizeLineBreaks(slide.text);
+  // If slide still needs verse text, render only reference and divider, never placeholder or notice text
+  const cleanText = slide.isTextNeeded ? '' : normalizeLineBreaks(slide.text);
 
   const themeVal = slideThemeEl ? slideThemeEl.value : 'porch-generic';
   const isLovers = themeVal === 'lovers-series';
@@ -3769,6 +4019,22 @@ async function renderSlideToCanvas(slide, canvas) {
 
 btnExport.addEventListener('click', async () => {
   if (slidesData.length === 0) return;
+
+  const slidesNeedingText = slidesData.filter(s => s.isTextNeeded);
+  if (slidesNeedingText.length > 0) {
+    const slideListStr = slidesNeedingText
+      .map(s => {
+        const trans = s.displayTranslation || s.translation || 'NIV';
+        return `${s.refBook} ${s.refVerse} (${trans})`;
+      })
+      .join(', ');
+    const count = slidesNeedingText.length;
+    const countText = count === 1 ? '1 slide still needs verse text' : `${count} slides still need verse text`;
+    const proceed = window.confirm(`${countText}: ${slideListStr}\n\nDo you want to proceed with export anyway?`);
+    if (!proceed) {
+      return;
+    }
+  }
   
   const progressModal = document.getElementById('progress-modal');
   const progressStatus = document.getElementById('progress-status');
@@ -3887,6 +4153,22 @@ btnExport.addEventListener('click', async () => {
 if (btnExportProPresenter) {
   btnExportProPresenter.addEventListener('click', async () => {
     if (slidesData.length === 0) return;
+
+    const slidesNeedingText = slidesData.filter(s => s.isTextNeeded);
+    if (slidesNeedingText.length > 0) {
+      const slideListStr = slidesNeedingText
+        .map(s => {
+          const trans = s.displayTranslation || s.translation || 'NIV';
+          return `${s.refBook} ${s.refVerse} (${trans})`;
+        })
+        .join(', ');
+      const count = slidesNeedingText.length;
+      const countText = count === 1 ? '1 slide still needs verse text' : `${count} slides still need verse text`;
+      const proceed = window.confirm(`${countText}: ${slideListStr}\n\nDo you want to proceed with export anyway?`);
+      if (!proceed) {
+        return;
+      }
+    }
 
     btnExportProPresenter.disabled = true;
     btnExport.disabled = true;
@@ -4124,6 +4406,12 @@ function openProofSheet() {
   slidesData.forEach((slide, idx) => {
     if (slide.type === 'scripture') {
       const poetryClass = (slide.format === 'poetry') ? 'format-poetry' : (slide.format === 'mixed' ? 'format-mixed' : '');
+      const textNeededBadge = slide.isTextNeeded
+        ? `<span class="proof-slide-badge" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.6); color: #f87171;">⚠️ Text needed: ${slide.textNeededReason || 'NIV'}</span>`
+        : '';
+      const pastedBadge = (slide.isPastedText && !slide.isTextNeeded)
+        ? `<span class="proof-slide-badge" style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.6); color: #fbbf24;">⚠️ Pasted text: verify</span>`
+        : '';
       html += `
         <div class="proof-slide-item">
           <div class="proof-slide-header">
@@ -4131,8 +4419,10 @@ function openProofSheet() {
               <span class="proof-slide-num">Slide ${idx + 1}</span>
               <span class="proof-slide-badge">Scripture</span>
               <span class="proof-slide-ref">${slide.refBook} ${slide.refVerse}</span>
+              ${textNeededBadge}
+              ${pastedBadge}
             </div>
-            <span class="proof-slide-badge">${slide.translation || transName}</span>
+            <span class="proof-slide-badge">${slide.displayTranslation || slide.translation || transName}</span>
           </div>
           <div class="proof-slide-text ${poetryClass}">
             ${slide.text}

@@ -352,6 +352,33 @@
                       </div>
                     </div>
                   </div>
+                  <div class="casing-warning-banner danger" id="active-slide-textneeded-warning" style="display: none;">
+                    <div class="casing-warning-content">
+                      <span class="casing-warning-icon">⚠️</span>
+                      <div class="casing-warning-text" id="active-slide-textneeded-warning-text">
+                        <strong>Text needed:</strong> Verse text is needed for this slide.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="casing-warning-banner" id="active-slide-pasted-warning" style="display: none;">
+                    <div class="casing-warning-content">
+                      <span class="casing-warning-icon">⚠️</span>
+                      <div class="casing-warning-text">
+                        <strong>Pasted text: verify</strong> — Verse text was supplied or pasted; please verify against a published Bible before presentation.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="paste-verse-container" class="paste-verse-container" style="display: none; margin-top: 14px; margin-bottom: 14px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label for="paste-verse-input" id="paste-verse-label" style="font-size: 0.8rem; font-weight: 600; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.05em;">Paste verse text (NIV)</label>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">1 verse per line with number</span>
+                  </div>
+                  <textarea id="paste-verse-input" rows="4" placeholder="e.g.&#10;18 For I consider that our present sufferings...&#10;19 For the creation waits..." style="width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 0.82rem; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-color); color: white; padding: 8px 10px; border-radius: 6px; box-sizing: border-box; resize: vertical; outline: none; line-height: 1.4;"></textarea>
+                  <div style="display: flex; gap: 8px; margin-top: 6px;">
+                    <button type="button" id="btn-apply-pasted-verse" class="btn btn-primary btn-sm" style="flex: 1; padding: 6px 10px; font-size: 0.8rem;">Apply Verse Text</button>
+                  </div>
                 </div>
 
                 <div class="editor-text-header">
