@@ -1559,10 +1559,17 @@ async function buildSlides(parsedRequests) {
       const { bookId, bookName, chapter, verses, translation } = item;
       
       let targetTranslation = globalTranslation;
+      let hasTranslationWarning = false;
+      let unrecognizedTranslationCode = null;
+
       if (translation) {
         const mapped = TRANSLATION_MAP[translation.toLowerCase()];
         if (mapped) {
           targetTranslation = mapped;
+        } else {
+          hasTranslationWarning = true;
+          unrecognizedTranslationCode = translation;
+          targetTranslation = globalTranslation;
         }
       }
       
@@ -1628,6 +1635,8 @@ async function buildSlides(parsedRequests) {
               chapter: chapter,
               targetVerse: targetVerse,
               translation: targetTranslation,
+              hasTranslationWarning: hasTranslationWarning,
+              unrecognizedTranslation: unrecognizedTranslationCode,
               format: slideFormat,
               isPoetry: isPoetry
             });
@@ -1728,6 +1737,8 @@ async function buildSlides(parsedRequests) {
           chapter: chapter,
           targetVerse: targetVerse,
           translation: targetTranslation,
+          hasTranslationWarning: hasTranslationWarning,
+          unrecognizedTranslation: unrecognizedTranslationCode,
           blockStart: currentBlock.startVerse,
           blockEnd: currentBlock.endVerse,
           format: slideFormat,
@@ -1841,10 +1852,14 @@ function renderSlideDeck() {
     const formatBadge = slide.hasFormatWarning
       ? `<span class="grid-slide-warning-flag" title="Unrecognized Bible book with time/colon pattern: treated as sermon point">⚠️ Check Format</span>`
       : '';
+    const translationBadge = slide.hasTranslationWarning
+      ? `<span class="grid-slide-warning-flag" title="Unrecognized translation '${slide.unrecognizedTranslation}' (used default: ${slide.translation})">⚠️ Translation: ${slide.unrecognizedTranslation}</span>`
+      : '';
     infoBar.innerHTML = `
       <span class="grid-slide-num">Slide ${idx + 1}</span>
       ${casingBadge}
       ${formatBadge}
+      ${translationBadge}
       <span class="grid-slide-label">${slide.type === 'scripture' ? `${slide.refBook} ${slide.refVerse}` : (slide.type === 'quote' ? `Quote: ${slide.author}` : 'Point')}</span>
     `;
     card.appendChild(infoBar);
@@ -2423,6 +2438,19 @@ function renderActiveSlide() {
       activeSlideFormatWarning.style.display = 'flex';
     } else {
       activeSlideFormatWarning.style.display = 'none';
+    }
+  }
+
+  const activeSlideTranslationWarning = document.getElementById('active-slide-translation-warning');
+  const activeSlideTranslationWarningText = document.getElementById('active-slide-translation-warning-text');
+  if (activeSlideTranslationWarning) {
+    if (slide.hasTranslationWarning) {
+      if (activeSlideTranslationWarningText) {
+        activeSlideTranslationWarningText.innerHTML = `<strong>Unrecognized Translation:</strong> "${slide.unrecognizedTranslation}" was not recognized; used default (${slide.translation}).`;
+      }
+      activeSlideTranslationWarning.style.display = 'flex';
+    } else {
+      activeSlideTranslationWarning.style.display = 'none';
     }
   }
   
