@@ -991,15 +991,14 @@ function parseRawInput(text) {
       const translationOverride = (scripMatch[4] || scripMatch[5]) ? (scripMatch[4] || scripMatch[5]).trim() : null;
       
       const bookMapped = parseBookAbbreviation(bookRaw);
-      const isSermonPointKeyword = /^(point|slide|verse|session|chapter|part)\b/i.test(bookRaw);
       
-      if (bookMapped || (hasChapterVersePattern && !isSermonPointKeyword)) {
+      if (bookMapped) {
         const verses = parseVersesString(verseStr);
         parsed.push({
           type: 'scripture',
           bookAbbr: bookRaw,
-          bookId: bookMapped ? bookMapped.id : null,
-          bookName: bookMapped ? bookMapped.name : bookRaw,
+          bookId: bookMapped.id,
+          bookName: bookMapped.name,
           chapter: chapter,
           verses: verses,
           translation: translationOverride,
@@ -1020,15 +1019,14 @@ function parseRawInput(text) {
         const translationOverride = (fallbackMatch[4] || fallbackMatch[5]) ? (fallbackMatch[4] || fallbackMatch[5]).trim() : null;
         
         const bookMapped = parseBookAbbreviation(bookRaw);
-        const isSermonPointKeyword = /^(point|slide|verse|session|chapter|part)\b/i.test(bookRaw);
         
-        if (bookMapped || (hasChapterVersePattern && !isSermonPointKeyword)) {
+        if (bookMapped) {
           const verses = parseVersesString(verseStr);
           parsed.push({
             type: 'scripture',
             bookAbbr: bookRaw,
-            bookId: bookMapped ? bookMapped.id : null,
-            bookName: bookMapped ? bookMapped.name : bookRaw,
+            bookId: bookMapped.id,
+            bookName: bookMapped.name,
             chapter: chapter,
             verses: verses,
             translation: translationOverride,
@@ -1068,11 +1066,16 @@ function parseRawInput(text) {
       }
     }
 
+    // A line with digit:digit whose book isn't in BOOK_MAP (e.g. "Service starts 7:30")
+    // becomes a sermon point with a format warning badge
+    const hasFormatWarning = hasChapterVersePattern;
+
     parsed.push({
       type: 'sermon-point',
       text: pointText,
       originalText: cleanLine,
       hasCasingWarning: hasCasingWarning,
+      hasFormatWarning: hasFormatWarning,
       rawLine: line
     });
   }
@@ -1538,6 +1541,7 @@ async function buildSlides(parsedRequests) {
         text: preventOrphans(slideText),
         originalText: origText,
         hasCasingWarning: hasWarning,
+        hasFormatWarning: !!item.hasFormatWarning,
         refBook: '',
         refVerse: '',
         rawText: origText
@@ -1834,9 +1838,13 @@ function renderSlideDeck() {
     const casingBadge = slide.hasCasingWarning 
       ? `<span class="grid-slide-casing-flag" title="Auto-cased to sentence case: click slide to review reverential capitalization">⚠️ Check Casing</span>` 
       : '';
+    const formatBadge = slide.hasFormatWarning
+      ? `<span class="grid-slide-warning-flag" title="Unrecognized Bible book with time/colon pattern: treated as sermon point">⚠️ Check Format</span>`
+      : '';
     infoBar.innerHTML = `
       <span class="grid-slide-num">Slide ${idx + 1}</span>
       ${casingBadge}
+      ${formatBadge}
       <span class="grid-slide-label">${slide.type === 'scripture' ? `${slide.refBook} ${slide.refVerse}` : (slide.type === 'quote' ? `Quote: ${slide.author}` : 'Point')}</span>
     `;
     card.appendChild(infoBar);
@@ -2408,6 +2416,15 @@ function renderActiveSlide() {
       activeSlideCasingWarning.style.display = 'none';
     }
   }
+
+  const activeSlideFormatWarning = document.getElementById('active-slide-format-warning');
+  if (activeSlideFormatWarning) {
+    if (slide.type === 'sermon-point' && slide.hasFormatWarning) {
+      activeSlideFormatWarning.style.display = 'flex';
+    } else {
+      activeSlideFormatWarning.style.display = 'none';
+    }
+  }
   
   updateActiveSlideNotesPreview();
   scaleEditorCanvas();
@@ -2595,8 +2612,11 @@ activeSlideTextarea.addEventListener('input', (e) => {
   }
   if (slide.type === 'sermon-point') {
     slide.hasCasingWarning = false;
+    slide.hasFormatWarning = false;
     const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
     if (activeSlideCasingWarning) activeSlideCasingWarning.style.display = 'none';
+    const activeSlideFormatWarning = document.getElementById('active-slide-format-warning');
+    if (activeSlideFormatWarning) activeSlideFormatWarning.style.display = 'none';
   }
   if (slide.type === 'scripture') {
     updateContextButtonStates(slide);
@@ -2679,8 +2699,11 @@ slideCanvasPreview.addEventListener('input', (e) => {
     slide.text = cleanedHtml;
     slide.rawText = cleanedHtml;
     slide.hasCasingWarning = false;
+    slide.hasFormatWarning = false;
     const activeSlideCasingWarning = document.getElementById('active-slide-casing-warning');
     if (activeSlideCasingWarning) activeSlideCasingWarning.style.display = 'none';
+    const activeSlideFormatWarning = document.getElementById('active-slide-format-warning');
+    if (activeSlideFormatWarning) activeSlideFormatWarning.style.display = 'none';
     delete slide.customNotes;
     // Show raw text with newlines in editor text area
     activeSlideTextarea.value = formatTextForTextarea(cleanedHtml);
