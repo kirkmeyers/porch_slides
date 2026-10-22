@@ -1198,15 +1198,17 @@ function parsePastedVerseLines(text, fallbackVerse) {
     const match = line.match(/^(\d+)[\.:\s\-)]+\s*(.*)$/);
     if (match) {
       const vNum = parseInt(match[1], 10);
-      const vText = match[2].trim();
+      let vText = match[2].trim();
+      vText = vText.replace(/\s+([,;:!?\.\)\]’”])/g, '$1').replace(/\s+('s\b)/gi, '$1').replace(/[ \t]+/g, ' ').trim();
       if (vText) {
         verses.push({ verse: vNum, text: vText });
       }
     } else {
+      let appendText = line.replace(/\s+([,;:!?\.\)\]’”])/g, '$1').replace(/\s+('s\b)/gi, '$1').replace(/[ \t]+/g, ' ').trim();
       if (verses.length > 0) {
-        verses[verses.length - 1].text += ' ' + line;
+        verses[verses.length - 1].text += ' ' + appendText;
       } else if (fallbackVerse != null) {
-        verses.push({ verse: fallbackVerse, text: line });
+        verses.push({ verse: fallbackVerse, text: appendText });
       }
     }
   }
@@ -1242,6 +1244,9 @@ function cleanChapterStudyMarkers(data, translation) {
       // Strip Strong's tags <S>...</S> and their contents, and any other HTML tags
       let cleaned = v.text.replace(/<S[\s\S]*?<\/S>/gi, '');
       cleaned = cleaned.replace(/<[^>]+>/g, '');
+      // Remove any extra whitespace before punctuation where markers were removed
+      cleaned = cleaned.replace(/\s+([,;:!?\.\)\]’”])/g, '$1');
+      cleaned = cleaned.replace(/\s+('s\b)/gi, '$1');
       cleaned = cleaned.replace(/[ \t]+/g, ' ').trim();
       return { ...v, text: cleaned };
     });
@@ -1255,6 +1260,9 @@ function cleanChapterStudyMarkers(data, translation) {
       cleaned = cleaned.replace(/<[^>]+>/g, '');
       cleaned = cleaned.replace(/[\u24D0-\u24E9\u24B6-\u24CF]/gu, '');
       cleaned = cleaned.replace(/\[[\u24D0-\u24E9\u24B6-\u24CF]\]/gu, '');
+      // Remove any extra whitespace before punctuation where markers were removed
+      cleaned = cleaned.replace(/\s+([,;:!?\.\)\]’”])/g, '$1');
+      cleaned = cleaned.replace(/\s+('s\b)/gi, '$1');
       cleaned = cleaned.replace(/[ \t]+/g, ' ').trim();
       return { ...v, text: cleaned };
     });
